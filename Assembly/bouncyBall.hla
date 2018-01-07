@@ -1,0 +1,89 @@
+/*
+ * Bouncy Ball
+ *
+ * written by				Konstantin Rebrov
+ * created on				2 November 2017
+ * last modified on			5 November 2017
+ *
+ * This program simulates a bouncing ball on the screen.
+ * The ball bounces inside a frame. Each time the ball touches
+ * one of the walls, it bounces off and changes its direction.
+ * The console library is used to print the box frame and the ball.
+ * 
+ * Registers:
+ * The ebx register holds the directional constant for the x position.
+ * The edx register holds the directional constant for the y position.
+ * These directional constants determine in what direction the ball
+ * should go in the next iteration of the loop. The value of a directional
+ * constant is either 1 or -1. This value is added to the x and y positions
+ * to update the position of the ball.
+ *
+ */ 
+program bouncyBall;
+
+
+// also includes console.hhf
+// also includes os.hhf
+#include("stdlib.hhf");
+#include("sleep.hhf");
+
+
+static
+	x_position: uns32;
+	y_position: uns32;
+
+
+// This is the main method of the program.
+// The program starts here at runtime.
+begin bouncyBall;
+	
+	mov(1, ebx);
+	mov(1, edx);
+	mov(4, x_position);  // the starting x position
+	mov(5, y_position);  // the starting y position
+	forever
+		console.cls();
+		
+		// Draws the box frame, or borders to the screen.
+		stdout.put('#');
+		stdout.putsSize("#", 51, '#');
+		stdout.newln();
+		for (mov(0, ch); ch < 35; inc(ch)) do
+			stdout.put('#');
+			stdout.putsSize("#", 51, ' ');
+			stdout.newln();
+		endfor;
+		stdout.put('#');
+		stdout.putsSize("#", 51, '#');
+		stdout.newln();
+		
+		// Draws the ball at its x and y positions.
+		console.setAttrs(console.magenta, console.black);
+		console.gotoxy(x_position, y_position);
+		stdout.put('O');
+		
+		// This code gets executed if the ball touches one of the walls.
+		// The directional constants ebx and edx are set accordingly.
+		if ((type uns32 x_position) = 1) then
+			mov(1, ebx);
+		elseif ((type uns32 x_position) = 50) then
+			mov(-1, ebx);
+		endif;
+		if ((type uns32 y_position) = 1) then
+			mov(1, edx);
+		elseif ((type uns32 y_position) = 35) then
+			mov(-1, edx);
+		endif;
+		
+		// Updates the position of the ball for the next iteration of the loop.
+		// The directional constants are added to the x and y positions.
+		add(ebx, x_position);
+		add(edx, y_position);
+		console.setAttrs(console.white, console.black);
+		
+		// Waits for 200 miliseconds before the next iteration of the loop.
+		os.mSleep(200);
+	endfor;
+	console.gotoxy(0, 37);
+	
+end bouncyBall;

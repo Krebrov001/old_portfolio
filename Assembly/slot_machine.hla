@@ -1,0 +1,238 @@
+/*
+ * Slot Machine Simulator
+ *
+ * written by			Konstantin Rebrov
+ * created on			18 September 2017
+ * last modified on		23 September 2017
+ *
+ * This program simulates a simple three-wheel slot machine.
+ * The user is given a bankroll of $1000.
+ * The user is then allowed to choose a wager amount $1-$3 inclusive.
+ * Then the wheels of the slot machine set themselves
+ * to one of three random outcomes.
+ * if all three wheels do not match, player loses her/his wager
+ * if all three wheels land on @CHERRY@ [80% probability] -- player wins wager amount
+ * if all three wheels land on $MONEY$  [15% probability] -- player wins double wager amount
+ * if all three wheels land on *STAR*    [5% probability] -- player wins triple wager amount
+ *
+ */
+program Slot_machine;
+
+#include("stdlib.hhf");  // HLA standard library
+
+
+/*
+ * This procedure prompts the user to enter the wager and checks the input.
+ * The user has to enter a number again on invalid input.
+ * Valid user input is a value [min-max] inclusive.
+ * The validated user input value is returned into the ax register.
+ */
+procedure getUns16(userPrompt: string; min: uns16; max: uns16); @forward;
+
+procedure getUns16(userPrompt: string; min: uns16; max: uns16);
+
+begin getUns16;
+	stdout.put(userPrompt, "[", min, "-", max, "]: ");
+	forever
+		try  // the code to test
+			stdin.getu16();
+			// continues on to here if the previous statement succeeds
+			if (ax < min || ax > max) then
+				stdout.put("Value is outside the given range.", nl);
+				stdout.newln();
+				stdout.put("Please enter a value within the given range [", min, "-", max, "]: ");
+			endif;
+			breakif(ax >= min && ax <= max);
+		anyexception  // goes here if the statement fails
+			stdout.put("OhNoes! Bad user input!", nl);
+			stdout.newln();
+			stdout.put("Try again, ", userPrompt, "[", min, "-", max, "]: ");
+		endtry;
+	endfor;
+end getUns16;
+
+
+/*
+ * Displays the outcome of the spinned wheel
+ * as a text symbol based on an unsigned 32-bit int input.
+ */
+procedure showSymbol(symbol: uns32);
+
+begin showSymbol;
+	if(symbol = 1) then
+		stdout.put("@CHERRY@", nl);
+	elseif(symbol = 2) then
+		stdout.put("$MONEY$", nl);
+	elseif(symbol = 3) then
+		stdout.put("*STAR*", nl);
+	endif;
+end showSymbol;
+
+
+/*
+ * This procedure generates a random outcome for the spinner
+ * out of 3 possible outcomes based on a probability algorithm.
+ * The random outcome is returned as an integer 1-3 to eax.
+ */
+procedure spinOneWheel;
+
+begin spinOneWheel;
+	// returns a random vaue [1-100] in the eax register
+	rand.urange(1, 100);
+	// random value is [1-79]
+	if(eax < 80) then
+		mov(1, eax);            // @CHERRY@
+	// random value is [80-94]
+	elseif(eax < 95) then
+		mov(2, eax);            // $MONEY$
+	// random value is [95-100]
+	else
+		mov(3, eax);            // *STAR*
+	endif;
+end spinOneWheel;
+
+
+/*
+ * This procedure/function spins three wheels and compares them
+ * to determine if the user has won anyting.
+ * The spinOneWheel function is called to set the outcomes for each of the three wheels.
+ * Then the outcomes are printed to the screen via the showSymbol procedure.
+ * This procedure returns a value to al:
+ * 		0 if the wheels do not match
+ * 		1 if all three wheels are @CHERRY@
+ * 		2 if all three wheels are $MONEY$
+ * 		3 if all three wheels are *STAR*
+ */
+procedure spinAllWheels;
+
+// local automatic variables store the outcomes for each wheel
+var
+	wheelOne:	uns32;
+	wheelTwo:	uns32;
+	wheelThree:	uns32;
+
+begin spinAllWheels;
+	// sets the random outcomes for all three wheels
+	spinOneWheel();
+	mov(eax, wheelOne);
+	spinOneWheel();
+	mov(eax, wheelTwo);
+	spinOneWheel();
+	mov(eax, wheelThree);
+	
+	// displays the outcomes for the wheels
+	showSymbol(wheelOne);
+	showSymbol(wheelTwo);
+	showSymbol(wheelThree);
+	
+	// moves two wheels into registers to prepare for the comparisson
+	mov(wheelTwo, eax);
+	mov(wheelThree, ebx);
+	
+	// compares the wheels
+	// if all three wheels are the same
+	if (eax = wheelOne && ebx = wheelOne) then
+		// since we know all three wheels are the same,
+		// only one wheel needs to be compared for this part
+		if (wheelOne = 1) then     // All three wheels are @CHERRY@
+			mov(1, al);
+		elseif(wheelOne = 2) then  // All three wheels are $MONEY$
+			mov(2, al);
+		elseif(wheelOne = 3) then  // All three wheels are *STAR*
+			mov(3, al);
+		endif;
+	// if the wheels do not match
+	else
+		mov(0, al);
+	endif;
+end spinAllWheels;
+
+
+// static unsigned 16-bit integer variables used in the main method of the program
+static
+	bankroll:	uns16 := 1000;  // The user's initial bankroll is $1000
+	wager:		uns16;          // The user's wager for each spin of the wheel.
+
+// This is the main method of the program.
+// The program starts here at runtime.
+begin Slot_machine;
+	
+	// Clears the console screen
+	console.cls();
+	
+	// seeds the random number generator
+	rand.randomize();
+	
+	/*
+     * The main program loop allows the user to bid a wager and spin the wheels again and again
+	 * until they either lose all their money or choose to leave the slot machine.
+	 */
+	forever
+		
+		stdout.newln();
+		stdout.put("Current bankroll: $", bankroll, nl);
+		stdout.newln();
+		
+		// gets the user's input
+		getUns16("Enter your wager ", 1, 3);
+		mov(ax, wager);
+		
+		stdout.newln();
+		// returns state of the outcomes comparisson to al
+		spinAllWheels();
+		
+		if (al = 0) then        // All three wheels do not match
+			mov(bankroll, ax);
+			sub(wager, ax);
+			mov(ax, bankroll);
+			stdout.put("You lost $", wager, nl);
+		elseif(al = 1) then                       // All three wheels are @CHERRY@
+			mov(bankroll, ax);
+			add(wager, ax);
+			mov(ax, bankroll);
+			stdout.put("You won $", wager, nl);
+		elseif(al = 2) then                       // All three wheels are $MONEY$
+			mov(wager, ax);
+			mul(2, ax);
+			mov(ax, wager);
+			mov(bankroll, ax);
+			add(wager, ax);
+			mov(ax, bankroll);
+			stdout.put("You won $", wager, nl);
+		elseif(al = 3) then                       // All three wheels are *STAR*
+			mov(wager, ax);
+			mul(3, ax);
+			mov(ax, wager);
+			mov(bankroll, ax);
+			add(wager, ax);
+			mov(ax, bankroll);
+			stdout.put("You won $", wager, nl);
+		endif;
+		
+		stdout.newln();
+		
+		// breaks out of the main program loop if the user loses all their money
+		if (bankroll = 0 || bankroll > 65533) then
+			stdout.put("You lost all your money!", nl);
+			stdout.put("Declaring bankrupcy...", nl);
+			break;
+		endif;
+		
+		// breaks out of the main program loop if the user decides that they do not want
+		// to continue playing
+		stdout.put("Do you want to continue playing? [y/n]: ");
+		stdin.readLn();
+		stdin.getc();  // returns char value to al
+		stdin.flushInput();  // flush the input buffer
+		
+		if (al != 'y' && al != 'n') then
+			stdout.put("Bad user input." nl);
+		elseif(al = 'n') then
+			stdout.put("Thank you for using the slot machines." nl);
+			stdout.put("Have a nice day." nl);
+		endif;
+		breakif(al != 'y');
+		
+	endfor;
+	
+end Slot_machine;

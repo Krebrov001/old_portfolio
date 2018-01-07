@@ -1,0 +1,48 @@
+/*
+ * No Storage Variables Demonstration
+ *
+ * written by			Konstantin Rebrov
+ * created on			27 November 2017
+ * last modified on		27 November 2017
+ *
+ * This program is a demonstration of @nostorage variables in HLA.
+ * Variables that have @nostorage at the end are assigned an address but are not stored in memory.
+ * Their memory address is the same as the memory address of the next variable declared in memory.
+ * In other words, the @nostorage variable and the regular variable share the same memory address.
+ * I like to think of @nostorage variables in HLA as being similar to reference variables in C/C++.
+ */
+program NoStore;
+
+#include("stdlib.hhf");
+
+
+static
+	abcd: dword; @nostorage;
+	byte 'a', 'b', 'c', 'd';
+	number1: int8; @nostorage;
+	number2: int8;
+
+
+begin NoStore;
+	
+	stdout.put("address of DIY string: $", &abcd, nl);
+	stdout.put((type char abcd[0]), " ");
+	stdout.put((type char abcd[1]), " ");
+	stdout.put((type char abcd[2]), " ");
+	stdout.put((type char abcd[3]), nl);
+	for (mov(0, ecx); ecx < 3; inc(ecx)) do
+		stdout.put((type char abcd[ecx]), ", ");
+	endfor;
+	stdout.put((type char abcd[ecx]), nl);
+	stdout.newln();
+	
+	stdout.put("Address of number1: $", &number1, nl);
+	stdout.put("Address of number2: $", &number2, nl);
+	
+	mov(5, number2);
+	stdout.put("Number1: ", number1, nl);
+	
+	mov(10, number1);
+	stdout.put("Number2: ", number2, nl);
+	
+end NoStore;

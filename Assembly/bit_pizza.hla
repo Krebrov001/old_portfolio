@@ -1,0 +1,402 @@
+/*
+ * Konstantin's Pizza Shop
+ *
+ * written by			Konstantin Rebrov
+ * created on			22 October 2017
+ * last modified on		22 October 2017
+ *
+ * This program demonstrates using word values to store a large amount
+ * of data compactly by representing that data as single bits.
+ * Bitwise logical operators are used to manipulate the bit data.
+ * This program sets the bit values for the features of each pizza.
+ * Then that information is read from the word values and the
+ * features of that kind of pizza are printed to the screen.
+ *
+ */
+program Pizza;
+
+#include("stdlib.hhf");
+
+// const is the same as #define in C++
+// they are substituted in to the program at compile time
+// no memory location is associated with these constants
+const
+	BURRATA:	word := 32768;
+	LENTILS:	word := 16384;
+	SPICES:		word :=  8192;
+	SHRIMP:		word :=  4096;
+	SAUSAGE:	word :=  2048;
+	ANCHOVY:	word :=  1024;
+	ONIONS:		word :=   512;
+	OLIVES:		word :=   256;
+	THICK:		word :=   128;
+	CHEESE:		word :=    64;
+	RED:		word :=    32;
+	TOMATOES:	word :=    16;
+	MEAT:		word :=     8;
+	PEPPERS:	word :=		4;
+	PINEAPPLE:	word :=		2;
+	MUSHROOMS:	word :=		1;
+	
+	// These constants list the kinds of pizzas that are availible at the pizza shop.
+	THE_BOYD:		char := 'A';
+	THE_MEAT:		char := 'B';
+	THE_HINDU:		char := 'C';
+	MEDITERRANEAN: 	char := 'D';
+	THE_VEGAN:		char := 'E';
+	
+
+procedure display(kind: char; pizza: word); @forward;
+procedure printBinary(pizza: word); @forward;
+
+
+/*
+ * This function displays the information about a given pizza.
+ *
+ * @param kind: char - Describes what kind of pizza is passed into
+ *                     the function. The title is printed based on the value
+ *                     of this parameter.
+ * @param pizza: word - Encodes the toppings in the pizza as a 16-bit binary value.
+ *                      This parameter is used to print the toppings of the pizza.
+ */
+procedure display(kind: char; pizza: word);
+begin display;
+	
+	// = is the equality operator in HLA
+	if (kind = THE_BOYD) then
+		stdout.put("The Boyd!", nl);
+	elseif (kind = THE_MEAT) then
+		stdout.put("The Meeat", nl);
+	elseif (kind = THE_HINDU) then
+		stdout.put("The Hindu", nl);
+	elseif (kind = MEDITERRANEAN) then
+		stdout.put("Mediterranean", nl);
+	elseif (kind = THE_VEGAN) then
+		stdout.put("The Vegan", nl);
+	endif;
+	
+	stdout.put("Features:", nl);
+	
+	mov(pizza, ax);
+	if (and(BURRATA, ax)) then
+		stdout.put(" -burrata", nl);
+	else
+		stdout.put(" -no burrata", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(LENTILS, ax)) then
+		stdout.put(" -lentils", nl);
+	else
+		stdout.put(" -no lentils", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(SPICES, ax)) then
+		stdout.put(" -spices", nl);
+	else
+		stdout.put(" -no spices", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(SHRIMP, ax)) then
+		stdout.put(" -shrimp", nl);
+	else
+		stdout.put(" -no shrimp", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(SAUSAGE, ax)) then
+		stdout.put(" -sausage", nl);
+	else
+		stdout.put(" -no sausage", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(ANCHOVY, ax)) then
+		stdout.put(" -anchovies", nl);
+	else
+		stdout.put(" -no anchovies", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(ONIONS, ax)) then
+		stdout.put(" -onions", nl);
+	else
+		stdout.put(" -no onions", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(OLIVES, ax)) then
+		stdout.put(" -olives", nl);
+	else
+		stdout.put(" -no olives", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(THICK, ax)) then
+		stdout.put(" -thick crust", nl);
+	else
+		stdout.put(" -thin crust", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(CHEESE, ax)) then
+		stdout.put(" -cheese", nl);
+	else
+		stdout.put(" -no cheese", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(RED, ax)) then
+		stdout.put(" -red", nl);
+	else
+		stdout.put(" -white", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(TOMATOES, ax)) then
+		stdout.put(" -tomatoes", nl);
+	else
+		stdout.put(" -no tomatoes", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(MEAT, ax)) then
+		stdout.put(" -meat", nl);
+	else
+		stdout.put(" -no meat", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(PEPPERS, ax)) then
+		stdout.put(" -peppers", nl);
+	else
+		stdout.put(" -no peppers", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(PINEAPPLE, ax)) then
+		stdout.put(" -pineapple", nl);
+	else
+		stdout.put(" -no pineapple", nl);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(MUSHROOMS, ax)) then
+		stdout.put(" -mushrooms", nl);
+	else
+		stdout.put(" -no mushrooms", nl);
+	endif;
+	
+	printBinary(pizza);
+	
+end display;
+
+
+/*
+ * This function prints the individual bits of a [16-bit] word value.
+ *
+ * @param pizza: word - The 16-bit word value to be printed as a binary number
+ */
+procedure printBinary(pizza: word);
+
+begin printBinary;
+	
+	stdout.put("Bits: %");
+	
+	mov(pizza, ax);
+	if (and(BURRATA, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(LENTILS, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(SPICES, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(SHRIMP, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.put("_");
+	
+	mov(pizza, ax);
+	if (and(SAUSAGE, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(ANCHOVY, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(ONIONS, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(OLIVES, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.put("_");
+	
+	mov(pizza, ax);
+	if (and(THICK, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(CHEESE, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(RED, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(TOMATOES, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.put("_");
+	
+	mov(pizza, ax);
+	if (and(MEAT, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(PEPPERS, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(PINEAPPLE, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(pizza, ax);
+	if (and(MUSHROOMS, ax)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.newln();
+	stdout.newln();
+	
+end printBinary;
+
+
+/*
+ * This function assembles a pizza according to the given kind.
+ *
+ * @param kind: char - Based on the value of this parameter, the pizza
+ *                     is assembled with different toppings.
+ * @returns("ax") - a 16-bit value with the toppings for the assembled pizza
+ *                  encoded as bits turned on or off.
+ */
+procedure assemble(kind: char); @returns("ax");
+
+begin assemble;
+	
+	mov(0, ax);
+	if (kind = THE_BOYD) then
+		or(THICK, ax);
+		or(RED, ax);
+		or(CHEESE, ax);
+		or(PINEAPPLE, ax);
+	elseif (kind = THE_MEAT) then
+		or(THICK, ax);
+		or(RED, ax);
+		or(MEAT, ax);
+		or(SAUSAGE, ax);
+		or(TOMATOES, ax);
+	elseif (kind = THE_HINDU) then
+		or(CHEESE, ax);
+		or(TOMATOES, ax);
+		or(PEPPERS, ax);
+		or(LENTILS, ax);
+		or(SPICES, ax);
+		or(ONIONS, ax);
+	elseif (kind = MEDITERRANEAN) then
+		or(CHEESE, ax);
+		or(BURRATA, ax);
+		or(SHRIMP, ax);
+		or(ANCHOVY, ax);
+		or(ONIONS, ax);
+		or(OLIVES, ax);
+		or(THICK, ax);
+		or(RED, ax);
+		or(TOMATOES, ax);
+		or(PEPPERS, ax);
+		or(MUSHROOMS, ax);
+	elseif (kind = THE_VEGAN) then
+		or(LENTILS, ax);
+		or(ONIONS, ax);
+		or(OLIVES, ax);
+		or(TOMATOES, ax);
+		or(PEPPERS, ax);
+		or(PINEAPPLE, ax);
+		or(MUSHROOMS, ax);
+	endif;
+	
+end assemble;
+
+
+// This is the main method of the program.
+// The program starts here at runtime.
+begin Pizza;
+	
+	stdout.put("Konstantin's Pizza Shop.", nl);
+	stdout.newln();
+	stdout.put("Here are the pizzas on the menu today.", nl, nl);
+	
+	display(THE_BOYD, assemble(THE_BOYD));
+	display(THE_MEAT, assemble(THE_MEAT));
+	display(THE_HINDU, assemble(THE_HINDU));
+	display(MEDITERRANEAN, assemble(MEDITERRANEAN));
+	display(THE_VEGAN, assemble(THE_VEGAN));
+	
+end Pizza;

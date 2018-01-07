@@ -1,0 +1,40 @@
+/*
+ * Max Value in registers
+ *
+ * written by				Konstantin Rebrov
+ * created on				28 November 2017
+ * last modified on			28 November 2017
+ *
+ * This program demonstrates filling up the registers with the maximum value that they can store,
+ * in 4 different ways. That value is 2^32 - 1.
+ *
+ */
+program maxValue;
+
+#include("stdlib.hhf");
+
+
+begin maxValue;
+	
+	stdout.put("eax: ", eax, nl);
+	stdout.put("ebx: ", ebx, nl);
+	stdout.put("ecx: ", ecx, nl);
+	stdout.put("edx: ", edx, nl);
+	
+	// regular [unsigned] decimal value
+	mov(4294967295, eax);
+	stdout.put("eax: ", eax, nl);
+	
+	// binary value
+	mov(%1111_1111_1111_1111_1111_1111_1111_1111, ebx);
+	stdout.put("ebx: ", ebx, nl);
+	
+	// hexadecimal value
+	mov($FFFFFFFF, ecx);
+	stdout.put("ecx: ", ecx, nl);
+	
+	// two's complement unsigned integer value
+	mov(-1, edx);
+	stdout.put("edx: ", edx, nl);
+	
+end maxValue;

@@ -1,0 +1,134 @@
+/*
+ * Prime Factorization
+ *
+ * written by				Konstantin Rebrov
+ * created on				25 September 2017
+ * last modified on			27 September 2017
+ *
+ * This program finds all real factors of a number entered by the user,
+ * and determines whether that number is prime or not.
+ * The procedure getUns16 is used for user input and validaton.
+ * The procedure showFactors calculates the factors for the given number
+ * and prints them to the screen.
+ * The user is allowed to repeat the program to enter another number if he or she so desires.
+ *
+ */
+ program prime_factorization;
+ 
+ // also includes console.hhf
+ #include("stdlib.hhf");
+ 
+ // global variable declarations
+ static
+	user_input:	uns16;
+ 
+ 
+ /* 
+  * This procedure gets an uns16 value from the user,
+  * checks the input for being a valid uns16 value in the given range [min-max] inclusive
+  * and returns the value into the ax register.
+  * If the user enters invalid input, they get an error message in RED!
+  */
+ procedure getUns16(user_prompt: string; min: uns16; max: uns16); @forward;
+ 
+ procedure getUns16(user_prompt: string; min: uns16; max: uns16);
+
+ begin getUns16;
+ 
+	forever
+		stdout.put(user_prompt, " [", min, "-", max, "]: ");
+		try  // the code to test
+			stdin.getu16();  // stores the return value into ax register
+			// continues here if the previous statement succeeded
+			unprotected breakif(ax >= min && ax <= max);
+			// if the code did not pass the breakif check
+			console.setAttrs(console.red, console.black);
+			stdout.put("Error: input out of range." nl);
+			console.setAttrs(console.white, console.black);
+		anyexception  // goes here if the previous statement failed
+			console.setAttrs(console.red, console.black);
+			stdout.put("Error: not a valid uns16 value." nl);
+			console.setAttrs(console.white, console.black);
+		endtry;
+	endfor;
+ 
+ end getUns16;
+ 
+ 
+ /*
+  * This procedure finds all the factors of the input_number.
+  * It uses a loop to run through all numbers [1-input_number] inclusive.
+  * If the counter divides evenly into input_number, then it's displayed as a factor.
+  * If the only factors of input_number are 1 and input_number, then input_number is prime.
+  * If any other number is identified as a factor, num_factors is incremented.
+  * num_factors contains the count of factors of input_number, excluding 1 and input_number.
+  * This procedure returns a value to al register:
+  * 0 if input_number is not prime, and 1 if input_number is prime.
+  */
+ procedure showFactors(input_number: uns16);
+ 
+ var
+	num_factors:	uns16;
+ 
+ begin showFactors;
+	
+	mov(0, num_factors);
+	// clears the ebx register before use
+	mov(0, ebx);
+	mov(input_number, bx);  // input_number is now in ebx
+	// ecx is the counter variable
+	for (mov(1, ecx); ecx <= ebx; inc(ecx)) do
+		mov(ebx, eax);  // setup for quotient
+		mov(0, edx);  // setup for remainder
+		div(ecx, edx:eax);
+		if (edx == 0) then
+			stdout.put((type uns32 ecx), " is a factor of ", (type uns32 ebx), nl);
+			if (ecx != 1 && ecx != ebx) then
+				inc(num_factors);  // num_factors++
+			endif;
+		endif;
+	endfor;
+	if (num_factors > 0) then
+		mov(0, al);
+	elseif (num_factors = 0) then
+		mov(1, al);
+	endif;
+	
+ end showFactors;
+ 
+ 
+ // This is the main method of the program.
+ // The program starts here at runtime.
+ begin prime_factorization;
+	
+	console.cls();
+	console.setAttrs(console.white, console.black);
+	
+	forever
+		
+		stdout.newln();
+		getUns16("Enter a number", 2, 65535);
+		mov(ax, user_input);
+		
+		stdout.newln();
+		showFactors(user_input);
+		if (al = 0) then
+			stdout.put(user_input, " is not prime.", nl);
+		elseif (al = 1) then
+			stdout.put(user_input, " is prime.", nl);
+		endif;
+		
+		stdout.newln();
+		stdout.put("Do you want to continue? [y/n]: ");
+		stdin.readLn();
+		stdin.getc();  // returns the character to al register
+		if (al != 'y' && al != 'n') then
+			stdout.put("READ THE DIRECTIONS!!!" nl);
+		elseif (al = 'n') then
+			stdout.put("Do svidaniya" nl);
+		endif;
+		breakif(al != 'y');
+	endfor;
+	
+ end prime_factorization;
+ 

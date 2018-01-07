@@ -1,0 +1,1816 @@
+/*
+ * Dynamic Memory Management APP
+ *
+ * written by				Konstantin Rebrov
+ * created on				02 November 2017
+ * last modified on			08 December 2017
+ *
+ * Tron Array Editor
+ * This program dynamically allocates an array of cells in memory, the specifications [size and data type]
+ * of which are provided by the user. After the array is "loaded" into memory, the user can perform a wide variety
+ * of manipulations on the data of this dynamic array by interacting with an equally dynamic UI.
+ * These actions include editing cells, finding the sum, average, minimum, and maximum of all the data in the array,
+ * changing the look of the data display between decimal, binary, and hexadecimal number systems,
+ * reseting [deallocating] the old array and reallocating a new one if not satisfied with the old array,
+ * and gracefully exiting the program when one is done using it.
+ * 
+ * The focus here is to make the program as user friendly as possible.
+ * The features for these are robust user input complete with specific error messages,
+ * an intuitive user interface reminiscent of "cyberpunk computer" or maybe Tron [I don't know],
+ * and a dynamically changing display with information updating in real time in response to the user's input.
+ *
+ * Registers:
+ * The ecx register is used mostly as a loop counter.
+ * The eax and ebx registers are used for various intermediate mathematical calculations.
+ * In addition, eax is where user input from the procedures is saved to by default.
+ * Unless noted in the procedure header comments, the procedures, being self-contained, push and pop their registers.
+ * See the procedure header comments to find out what they do.
+ *
+ */
+program Dynamic_memory_management;
+
+#include("stdlib.hhf");
+#include("sleep.hhf");
+
+
+const
+	vertical_line:					char := (type char 179);
+	horizontal_line:				char := (type char 196);
+	right_t_line:					char := (type char 195);
+	left_t_line:					char := (type char 180);
+	top_left_corner_border:			char := (type char 201);
+	top_right_corner_border:		char := (type char 187);
+	bottom_left_corner_border:		char := (type char 200);
+	bottom_right_corner_border: 	char := (type char 188);
+	top_left_connector_border:		char := (type char 213);
+	top_right_connector_border:		char := (type char 184);
+	bottom_left_connector_border:	char := (type char 212);
+	bottom_right_connector_border:	char := (type char 190);
+	horizontal_border:				char := (type char 205);
+	vertical_border:				char := (type char 186);
+	solid_block_left_half:			char := (type char 221);
+	solid_block_right_half:			char := (type char 222);
+	solid_block_full:				char := (type char 219);
+
+
+static
+	// attributes belonging to the dynamic array
+	array_base_address: dword;  // A pointer to the first memory location in the array.
+	array_size:			uns32;  // The number of cells in the array, not including the computation cell.
+	array_data_type:	char;   // 'a' = INT8, 'b' = INT16, 'c' = INT32
+	
+	number_system:		char;   // 'a' = decimal, 'b' = binary, 'c' = hexadecimal
+	data_calculation:	int8;   // 1 = SUM, 2 = AVERAGE, 3 = MINIMUM, 4 = MAXIMUM
+	
+	cursor_location:	uns32;  // Specifies where the user prompt is on the screen.
+
+
+// procedure forward declarations
+procedure getInt8(user_prompt: string; min_value: int8; max_value: int8; y_pos: uns32); @forward;
+procedure getInt16(user_prompt: string; min_value: int16; max_value: int16; y_pos: uns32); @forward;
+procedure getInt32(user_prompt: string; min_value: int32; max_value: int32; y_pos: uns32); @forward;
+procedure getUns32(user_prompt: string; min_value: uns32; max_value: uns32; y_pos: uns32); @forward;
+procedure getDataType(user_prompt: string; y_pos: uns32); @forward;
+procedure getNumberSystem(user_prompt: string; y_pos: uns32); @forward;
+procedure show8Bits(bit8_value: byte); @forward;
+procedure show16Bits(bit16_value: word); @forward;
+procedure show32Bits(bit32_value: dword); @forward;
+
+
+/*
+ * This procedure reads in an int8 value from the user with robust input handling.
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ * This process continues again and again until a valid signed 8-bit value is entered.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param min_value: int8 - The minimum value accepted as valid input.
+ *
+ * @param max_value: int8 - The maximum value accepted as valid input.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as an int8 value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getInt8(user_prompt: string; min_value: int8; max_value: int8; y_pos: uns32);
+begin getInt8;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.geti8();  // returns value to al
+			unprotected
+				breakif((type int8 al) >= min_value && (type int8 al) <= max_value);
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Out of range");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Invalid type");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getInt8;
+
+
+/*
+ * This procedure reads in an int16 value from the user with robust input handling.
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ * This process continues again and again until a valid signed 16-bit value is entered.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param min_value: int16 - The minimum value accepted as valid input.
+ *
+ * @param max_value: int16 - The maximum value accepted as valid input.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as an int16 value to the ax register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getInt16(user_prompt: string; min_value: int16; max_value: int16; y_pos: uns32);
+begin getInt16;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.geti16();  // returns value to ax
+			unprotected
+				breakif((type int16 ax) >= min_value && (type int16 ax) <= max_value);
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Out of range");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Invalid type");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getInt16;
+
+
+/*
+ * This procedure reads in an int32 value from the user with robust input handling.
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ * This process continues again and again until a valid signed 32-bit value is entered.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param min_value: int32 - The minimum value accepted as valid input.
+ *
+ * @param max_value: int32 - The maximum value accepted as valid input.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as an int32 value to the eax register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getInt32(user_prompt: string; min_value: int32; max_value: int32; y_pos: uns32);
+begin getInt32;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.geti32();  // returns value to eax
+			unprotected
+				breakif((type int32 eax) >= min_value && (type int32 eax) <= max_value);
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Out of range");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Invalid type");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getInt32;
+
+
+/*
+ * This procedure reads in an uns32 value from the user with robust input handling.
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param min_value: uns32 - The minimum value accepted as valid input.
+ *
+ * @param max_value: uns32 - The maximum value accepted as valid input.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as an uns32 value to the eax register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getUns32(user_prompt: string; min_value: uns32; max_value: uns32; y_pos: uns32);
+begin getUns32;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.getu32();  // returns value to eax
+			unprotected
+				breakif((type uns32 eax) >= min_value && (type uns32 eax) <= max_value);
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Out of range");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(30, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: Invalid type");
+			console.setAttrs(console.cyan, console.black);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getUns32;
+
+
+/*
+ * This procedure reads in a data type from the user as a string and returns the
+ * corresponding code into the al register:
+ * a - INT8
+ * b - INT16
+ * c - INT32
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * The memory for the string is deallocated.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as a char value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getDataType(user_prompt: string; y_pos: uns32);
+
+var
+	dataType: string;
+	
+begin getDataType;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.a_gets();
+			mov(eax, dataType);
+			if (str.eq(dataType, "INT8")) then
+				mov('a', al);
+			elseif (str.eq(dataType, "INT16")) then
+				mov('b', al);
+			elseif (str.eq(dataType, "INT32")) then
+				mov('c', al);
+			endif;
+			unprotected
+				breakif(str.eq(dataType, "INT8"));
+				breakif(str.eq(dataType, "INT16"));
+				breakif(str.eq(dataType, "INT32"));
+			console.gotoxy(21, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: not a valid data type");
+			console.setAttrs(console.cyan, console.black);
+			strfree(dataType);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(21, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: not a valid data type");
+			console.setAttrs(console.cyan, console.black);
+			strfree(dataType);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	// deallocates memory for the string once you're done with it
+	strfree(dataType);
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getDataType;
+
+
+/*
+ * This procedure prints out all the values in the array in decimal.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base pointer.
+ * The ecx register is used to loop through the array and print each value in the array.
+ * Here, ecx represents the index of the nth value in the array starting at 0, so the scaled indexing
+ * automatically selects the next item in the array by the size of the data type as a unit.
+ * It is how the computer internally represents the array in memory.
+ * The eax register represents the number of the nth value in the array starting at 1.
+ * It is how the user conceptually sees the array.
+ * This is different from ecx, which contains the INDEX of that number.
+ * ecx is used for scaled indexing purposes, while eax is meant to be printed onto the screen.
+ * Actually, eax = ecx + 1
+ * All three used registers are preserved by pushing and popping them around the body of the procedure.
+ *
+ */
+procedure displayCellsDecimal(base_address: dword; num_cells: uns32; data_type: char; calculation: int8);
+begin displayCellsDecimal;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	mov(base_address, ebx);
+	for (mov(0, ecx); ecx < num_cells; inc(ecx)) do
+		stdout.put(vertical_line);
+		mov(ecx, eax);
+		inc(eax);
+		if (ecx < 9) then
+			stdout.putsSize(" ", 5, ' ');
+		// If ecx the index of the cell is 9, then eax the number of the cell is 10.
+		// 10 contains one more digit, so it is formatted differently.
+		elseif (ecx == 9) then
+			stdout.putsSize(" ", 4, ' ');
+		endif;
+		stdout.put((type int32 eax), ": ");
+		stdout.put(solid_block_right_half);
+		console.setAttrs(console.black, console.cyan);
+		if (data_type == 'a') then
+			stdout.put((type int8 [ebx + ecx]));
+		elseif (data_type == 'b') then
+			stdout.put((type int16 [ebx + ecx * 2]));
+		elseif (data_type == 'c') then
+			stdout.put((type int32 [ebx + ecx * 4]));
+		endif;
+		console.setAttrs(console.cyan, console.black);
+		stdout.put(solid_block_left_half, nl);
+	endfor;
+	stdout.newln();
+	stdout.put(vertical_line);
+	if (calculation == 1) then
+		stdout.putsSize("SUM: ", 8, ' ');
+	elseif (calculation == 2) then
+		stdout.putsSize("AVG: ", 8, ' ');
+	elseif (calculation == 3) then
+		stdout.putsSize("MIN: ", 8, ' ');
+	elseif (calculation == 4) then
+		stdout.putsSize("MAX: ", 8, ' ');
+	endif;
+	stdout.put(solid_block_right_half);
+	console.setAttrs(console.black, console.cyan);
+	// ecx now points to the additional computation cell
+	if (data_type == 'a') then
+		stdout.put((type int8 [ebx + ecx]));
+	elseif (data_type == 'b') then
+		stdout.put((type int16 [ebx + ecx * 2]));
+	elseif (data_type == 'c') then
+		stdout.put((type int32 [ebx + ecx * 4]));
+	endif;
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(solid_block_left_half, nl);
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end displayCellsDecimal;
+
+
+/*
+ * This procedure prints out all the values in the array in hexadecimal.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base pointer.
+ * The ecx register is used to loop through the array and print each value in the array.
+ * Here, ecx represents the index of the nth value in the array starting at 0, so the scaled indexing
+ * automatically selects the next item in the array by the size of the data type as a unit.
+ * It is how the computer internally represents the array in memory.
+ * The eax register represents the number of the nth value in the array starting at 1.
+ * It is how the user conceptually sees the array.
+ * This is different from ecx, which contains the INDEX of that number.
+ * ecx is used for scaled indexing purposes, while eax is meant to be printed onto the screen.
+ * Actually, eax = ecx + 1
+ * All three used registers are preserved by pushing and popping them around the body of the procedure.
+ *
+ */
+procedure displayCellsHexadecimal(base_address: dword; num_cells: uns32; data_type: char; calculation: int8);
+begin displayCellsHexadecimal;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	mov(base_address, ebx);
+	for (mov(0, ecx); ecx < num_cells; inc(ecx)) do
+		stdout.put(vertical_line);
+		mov(ecx, eax);
+		inc(eax);
+		if (ecx < 9) then
+			stdout.putsSize(" ", 5, ' ');
+		// If ecx the index of the cell is 9, then eax the number of the cell is 10.
+		// 10 contains one more digit, so it is formatted differently.
+		elseif (ecx == 9) then
+			stdout.putsSize(" ", 4, ' ');
+		endif;
+		stdout.put((type int32 eax), ": ");
+		stdout.put(solid_block_right_half);
+		console.setAttrs(console.black, console.cyan);
+		if (data_type == 'a') then
+			stdout.put("$", (type byte [ebx + ecx]));
+		elseif (data_type == 'b') then
+			stdout.put("$", (type word [ebx + ecx * 2]));
+		elseif (data_type == 'c') then
+			stdout.put("$", (type dword [ebx + ecx * 4]));
+		endif;
+		console.setAttrs(console.cyan, console.black);
+		stdout.put(solid_block_left_half, nl);
+	endfor;
+	stdout.newln();
+	stdout.put(vertical_line);
+	if (calculation == 1) then
+		stdout.putsSize("SUM: ", 8, ' ');
+	elseif (calculation == 2) then
+		stdout.putsSize("AVG: ", 8, ' ');
+	elseif (calculation == 3) then
+		stdout.putsSize("MIN: ", 8, ' ');
+	elseif (calculation == 4) then
+		stdout.putsSize("MAX: ", 8, ' ');
+	endif;
+	stdout.put(solid_block_right_half);
+	console.setAttrs(console.black, console.cyan);
+	// ecx now points to the additional computation cell
+	if (data_type == 'a') then
+		stdout.put("$", (type byte [ebx + ecx]));
+	elseif (data_type == 'b') then
+		stdout.put("$", (type word [ebx + ecx * 2]));
+	elseif (data_type == 'c') then
+		stdout.put("$", (type dword [ebx + ecx * 4]));
+	endif;
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(solid_block_left_half, nl);
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end displayCellsHexadecimal;
+
+
+/*
+ * This procedure prints out all the values in the array in binary.
+ * This procedure uses the following helper procedures to print the different data types in binary:
+ * show8Bits, show16Bits, show32Bits.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base pointer.
+ * The ecx register is used to loop through the array and print each value in the array.
+ * Here, ecx represents the index of the nth value in the array starting at 0, so the scaled indexing
+ * automatically selects the next item in the array by the size of the data type as a unit.
+ * It is how the computer internally represents the array in memory.
+ * The eax register represents the number of the nth value in the array starting at 1.
+ * It is how the user conceptually sees the array.
+ * This is different from ecx, which contains the INDEX of that number.
+ * ecx is used for scaled indexing purposes, while eax is meant to be printed onto the screen.
+ * Actually, eax = ecx + 1
+ * All three used registers are preserved by pushing and popping them around the body of the procedure.
+ *
+ */
+procedure displayCellsBinary(base_address: dword; num_cells: uns32; data_type: char; calculation: int8);
+begin displayCellsBinary;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	mov(base_address, ebx);
+	for (mov(0, ecx); ecx < num_cells; inc(ecx)) do
+		stdout.put(vertical_line);
+		mov(ecx, eax);
+		inc(eax);
+		if (ecx < 9) then
+			stdout.putsSize(" ", 5, ' ');
+		// If ecx the index of the cell is 9, then eax the number of the cell is 10.
+		// 10 contains one more digit, so it is formatted differently.
+		elseif (ecx == 9) then
+			stdout.putsSize(" ", 4, ' ');
+		endif;
+		stdout.put((type int32 eax), ": ");
+		stdout.put(solid_block_right_half);
+		console.setAttrs(console.black, console.cyan);
+		if (data_type == 'a') then
+			//stdout.put("$", (type byte [ebx + ecx]));
+			show8Bits((type byte [ebx + ecx]));
+		elseif (data_type == 'b') then
+			//stdout.put("$", (type word [ebx + ecx * 2]));
+			show16Bits((type word [ebx + ecx * 2]));
+		elseif (data_type == 'c') then
+			//stdout.put("$", (type dword [ebx + ecx * 4]));
+			show32Bits((type dword [ebx + ecx * 4]));
+		endif;
+		console.setAttrs(console.cyan, console.black);
+		stdout.put(solid_block_left_half, nl);
+	endfor;
+	stdout.newln();
+	stdout.put(vertical_line);
+	if (calculation == 1) then
+		stdout.putsSize("SUM: ", 8, ' ');
+	elseif (calculation == 2) then
+		stdout.putsSize("AVG: ", 8, ' ');
+	elseif (calculation == 3) then
+		stdout.putsSize("MIN: ", 8, ' ');
+	elseif (calculation == 4) then
+		stdout.putsSize("MAX: ", 8, ' ');
+	endif;
+	stdout.put(solid_block_right_half);
+	console.setAttrs(console.black, console.cyan);
+	// ecx now points to the additional computation cell
+	if (data_type == 'a') then
+		//stdout.put("$", (type byte [ebx + ecx]));
+		show8Bits((type byte [ebx + ecx]));
+	elseif (data_type == 'b') then
+		//stdout.put("$", (type word [ebx + ecx * 2]));
+		show16Bits((type word [ebx + ecx * 2]));
+	elseif (data_type == 'c') then
+		//stdout.put("$", (type dword [ebx + ecx * 4]));
+		show32Bits((type dword [ebx + ecx * 4]));
+	endif;
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(solid_block_left_half, nl);
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end displayCellsBinary;
+
+
+/*
+ * This procedure prints out an 8-bit value in binary with the format: %1111_1111
+ * I used J Boyd Trolinger's Algorithm:
+ * Each bit is shifted over to the 0 [first] bit position, and the resulting value is
+ * and() with 1 to determine if that bit is a 1 or 0.
+ * If the four most significant bits have been processed, a "_" is printed.
+ * This procedure does not print a newline after the binary number.
+ *
+ * @param bit8_value: byte - The 8-bit value that is to be printed in binary.
+ *
+ * Registers:
+ * This procedure pushes and pops the ecx register because the cl and ch registers
+ * are used to print the bits of the bit8_value.
+ *
+ */
+procedure show8Bits(bit8_value: byte);
+
+begin show8Bits;
+	
+	push(ecx);
+	
+	stdout.put("%");
+	for (mov(7, cl); (type int8 cl) >= 0; dec(cl)) do
+		// since and() overwrites the original value,
+		// I have to mov() it to a register
+		mov(bit8_value, ch);
+		shr(cl, ch);
+		and(1, ch);
+		stdout.put((type uns8 ch));
+		if (cl = 4) then
+			stdout.put("_");
+		endif;
+	endfor;
+	
+	pop(ecx);
+	
+end show8Bits;
+
+
+/*
+ * This procedure prints out a 16-bit value in binary with the format: %1111_1111_1111_1111
+ * I used J Boyd Trolinger's Algorithm:
+ * Each bit is shifted over to the 0 [first] bit position, and the resulting value is
+ * and() with 1 to determine if that bit is a 1 or 0.
+ * When a multiple of four most significant bits have been processed, a "_" is printed.
+ * No underscore is printed after the last bit.
+ * This procedure does not print a newline after the binary number.
+ *
+ * @param bit16_value: word - The 16-bit value that is to be printed in binary.
+ *
+ * Registers:
+ * cl is used as a loop counter.
+ * bx is used to hold the value of the shifted over bit.
+ * ax is used for division/modulo to check if a multiple of four leftmost bits have been processed,
+ * and it's time to print a "_".
+ * The 32 bit registers that contain the used registers are pushed and popped.
+ * 
+ */
+procedure show16Bits(bit16_value: word);
+
+begin show16Bits;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	stdout.put("%");
+	for (mov(15, cl); (type int8 cl) >= 0; dec(cl)) do
+		// since and() overwrites the original value,
+		// I have to mov() it to a register
+		mov(bit16_value, bx);
+		shr(cl, bx);
+		and(1, bx);
+		stdout.put((type uns16 bx));
+		// check to see if cl is a multiple of 4
+		mov(cl, al);
+		mov(0, ah);
+		div(4, ax);
+		// ah contains the remainder
+		if (ah = 0 && cl != 0) then  // cl = 0 when the last bit has been processed
+			stdout.put("_");
+		endif;
+	endfor;
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end show16Bits;
+
+
+/*
+ * This procedure prints out a 32-bit value in binary with the format: %1111_1111_1111_1111_1111_1111_1111_1111
+ * I used J Boyd Trolinger's Algorithm:
+ * Each bit is shifted over to the 0 [first] bit position, and the resulting value is
+ * and() with 1 to determine if that bit is a 1 or 0.
+ * When a multiple of four most significant bits have been processed, a "_" is printed.
+ * No underscore is printed after the last bit.
+ * This procedure does not print a newline after the binary number.
+ *
+ * @param bit32_value: dword - The 32-bit value that is to be printed in binary.
+ *
+ * Registers:
+ * cl is used as a loop counter.
+ * ebx is used to hold the value of the shifted over bit.
+ * ax is used for division/modulo to check if a multiple of four leftmost bits have been processed,
+ * and it's time to print a "_".
+ * The 32 bit registers that contain the used registers are pushed and popped.
+ * 
+ */
+procedure show32Bits(bit32_value: dword);
+
+begin show32Bits;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	stdout.put("%");
+	for (mov(31, cl); (type int8 cl) >= 0; dec(cl)) do
+		// since and() overwrites the original value,
+		// I have to mov() it to a register
+		mov(bit32_value, ebx);
+		shr(cl, ebx);
+		and(1, ebx);
+		stdout.put((type uns32 ebx));
+		// check to see if cl is a multiple of 4
+		mov(cl, al);
+		mov(0, ah);
+		div(4, ax);
+		// ah contains the remainder
+		if (ah = 0 && cl != 0) then  // cl = 0 when the last bit has been processed
+			stdout.put("_");
+		endif;
+	endfor;
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end show32Bits;
+
+
+/*
+ * This procedure reads in a number system from the user as a string and returns the
+ * corresponding code into the al register:
+ * a - DECIMAL
+ * b - BINARY
+ * c - HEXADECIMAL
+ * If the user enters invalid input, they get an error message printed to the screen.
+ * The memory for the string then is deallocated.
+ * Then that line of the screen is repainted and the user prompt is displayed again.
+ *
+ * @param user_prompt: string - This is the standard user prompt for the input line.
+ *
+ * @param y_pos: uns32 - The y position of the user prompt on the screen.
+ *
+ * Registers:
+ * This procedure returns the user input as a char value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ *
+ */
+procedure getNumberSystem(user_prompt: string; y_pos: uns32);
+
+var
+	numberSystem: string;
+	
+begin getNumberSystem;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	push(edi);
+	push(esi);
+	
+	stdin.flushInput();  // clears the input buffer
+	forever
+		console.gotoxy(1, y_pos);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, y_pos);
+		stdout.put(user_prompt);
+		try
+			stdin.a_gets();
+			mov(eax, numberSystem);
+			if (str.eq(numberSystem, "DECIMAL")) then
+				mov('a', al);
+			elseif (str.eq(numberSystem, "BINARY")) then
+				mov('b', al);
+			elseif (str.eq(numberSystem, "HEXADECIMAL")) then
+				mov('c', al);
+			endif;
+			unprotected
+				breakif(str.eq(numberSystem, "DECIMAL"));
+				breakif(str.eq(numberSystem, "BINARY"));
+				breakif(str.eq(numberSystem, "HEXADECIMAL"));
+			console.gotoxy(17, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: not a valid number system");
+			console.setAttrs(console.cyan, console.black);
+			strfree(numberSystem);
+			os.sleep(2);
+		anyexception
+			console.gotoxy(17, y_pos);
+			console.setAttrs(console.cyan, console.blue);
+			stdout.put(" -ERROR: not a valid number system");
+			console.setAttrs(console.cyan, console.black);
+			strfree(numberSystem);
+			os.sleep(2);
+		endtry;
+	endfor;
+	
+	// deallocates memory for the string once you're done with it
+	strfree(numberSystem);
+	
+	pop(esi);
+	pop(edi);
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getNumberSystem;
+
+
+/*
+ * This procedure computes the largest value in the array and saves it into the extra "computation cell"
+ * The "computation cell" is located at index [num_cells] in the array.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used as a loop counter variable.
+ * Here, ecx stores the index of a particular cell in the array.
+ * After the loop ends, ecx contains the index of the "computation cell."
+ * The edx register is used to store the largest value in the array as an intermediate calculaton.
+ * Depending on the data type, dl, dx, or the full edx is used for this purpose
+ * All the registers that are used in this procedure are pushed and popped to avoid unexpected behavior.
+ *
+ */
+procedure computeMaximum(base_address: dword; num_cells: uns32; data_type: char);
+begin computeMaximum;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	mov(base_address, ebx);
+	
+	// mov the first element in the array to edx
+	if (data_type == 'a') then  // INT8
+		mov((type int8 [ebx]), dl);
+	elseif (data_type == 'b') then  // INT16
+		mov((type int16 [ebx]), dx);
+	elseif (data_type == 'c') then  // INT32
+		mov((type int32 [ebx]), edx);
+	endif;
+	
+	// loop through the array to compare the values to edx
+	// ecx starts at 1 because we assume that the first element is the largest
+	for (mov(1, ecx); ecx < num_cells; inc(ecx)) do
+		if (data_type == 'a') then  // INT8
+			if ((type int8 [ebx + ecx]) > (type int8 dl)) then
+				mov((type int8 [ebx + ecx]), dl);
+			endif;
+		elseif (data_type == 'b') then  // INT16
+			if ((type int16 [ebx + ecx * 2]) > (type int16 dx)) then
+				mov((type int16 [ebx + ecx * 2]), dx);
+			endif;
+		elseif (data_type == 'c') then  // INT32
+			if ((type int32 [ebx + ecx * 4]) > (type int32 edx)) then
+				mov((type int32 [ebx + ecx * 4]), edx);
+			endif;
+		endif;
+	endfor;
+	// now ecx points to the extra "computation cell" in the array
+	
+	// mov the largest element in the array into the "computation cell"
+	if (data_type == 'a') then  // INT8
+		mov(dl, (type int8 [ebx + ecx]));
+	elseif (data_type == 'b') then  // INT16
+		mov(dx, (type int16 [ebx + ecx * 2]));
+	elseif (data_type == 'c') then  // INT32
+		mov(edx, (type int32 [ebx + ecx * 4]));
+	endif;
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end computeMaximum;
+
+
+/*
+ * This procedure computes the smallest value in the array and saves it into the extra "computation cell"
+ * The "computation cell" is located at index [num_cells] in the array.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used as a loop counter variable.
+ * Here, ecx stores the index of a particular cell in the array.
+ * After the loop ends, ecx contains the index of the "computation cell."
+ * The edx register is used to store the smallest value in the array as an intermediate calculaton.
+ * Depending on the data type, dl, dx, or the full edx is used for this purpose
+ * All the registers that are used in this procedure are pushed and popped to avoid unexpected behavior.
+ *
+ */
+procedure computeMinimum(base_address: dword; num_cells: uns32; data_type: char);
+begin computeMinimum;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	mov(base_address, ebx);
+	
+	// mov the first element in the array to edx
+	if (data_type == 'a') then  // INT8
+		mov((type int8 [ebx]), dl);
+	elseif (data_type == 'b') then  // INT16
+		mov((type int16 [ebx]), dx);
+	elseif (data_type == 'c') then  // INT32
+		mov((type int32 [ebx]), edx);
+	endif;
+	
+	// loop through the array to compare the values to edx
+	// ecx starts at 1 because we assume that the first element is the smallest
+	for (mov(1, ecx); ecx < num_cells; inc(ecx)) do
+		if (data_type == 'a') then  // INT8
+			if ((type int8 [ebx + ecx]) < (type int8 dl)) then
+				mov((type int8 [ebx + ecx]), dl);
+			endif;
+		elseif (data_type == 'b') then  // INT16
+			if ((type int16 [ebx + ecx * 2]) < (type int16 dx)) then
+				mov((type int16 [ebx + ecx * 2]), dx);
+			endif;
+		elseif (data_type == 'c') then  // INT32
+			if ((type int32 [ebx + ecx * 4]) < (type int32 edx)) then
+				mov((type int32 [ebx + ecx * 4]), edx);
+			endif;
+		endif;
+	endfor;
+	// now ecx points to the extra "computation cell" in the array
+	
+	// mov the smallest element in the array into the "computation cell"
+	if (data_type == 'a') then  // INT8
+		mov(dl, (type int8 [ebx + ecx]));
+	elseif (data_type == 'b') then  // INT16
+		mov(dx, (type int16 [ebx + ecx * 2]));
+	elseif (data_type == 'c') then  // INT32
+		mov(edx, (type int32 [ebx + ecx * 4]));
+	endif;
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end computeMinimum;
+
+
+/*
+ * This procedure computes the total sum of the array and saves it into the extra "computation cell"
+ * The "computation cell" is located at index [num_cells] in the array.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used as a loop counter variable.
+ * Here, ecx stores the index of a particular cell in the array.
+ * After the loop ends, ecx contains the index of the "computation cell."
+ * The edx register is used to hold the current [or running] sum as an intermediate calculation.
+ * After the loop ends, edx holds the total sum of the array.
+ * Depending on the data type, dl, dx, or the full edx is used for this purpose.
+ * This procedure also returns $0F [15] into the al register if overflow is generated.
+ * $0F stands for 0verFlow.
+ * ebx, ecx, and edx pushed and popped to avoid unexpected behavior.
+ *
+ */
+procedure computeSum(base_address: dword; num_cells: uns32; data_type: char);
+begin computeSum;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	mov(base_address, ebx);
+	
+	mov(0, edx);
+	
+	// loop through the array to add the values to edx
+	for (mov(0, ecx); ecx < num_cells; inc(ecx)) do
+		if (data_type == 'a') then  // INT8
+			add((type int8 [ebx + ecx]), dl);
+		elseif (data_type == 'b') then  // INT16
+			add((type int16 [ebx + ecx * 2]), dx);
+		elseif (data_type == 'c') then  // INT32
+			add((type int32 [ebx + ecx * 4]), edx);
+		endif;
+		if (@o) then  // checks the overflow flag
+			mov($0F, al);
+		endif;
+	endfor;
+	// now ecx points to the extra "computation cell" in the array
+	
+	// mov the resulting sum of the array into the "computation cell"
+	if (data_type == 'a') then  // INT8
+		mov(dl, (type int8 [ebx + ecx]));
+	elseif (data_type == 'b') then  // INT16
+		mov(dx, (type int16 [ebx + ecx * 2]));
+	elseif (data_type == 'c') then  // INT32
+		mov(edx, (type int32 [ebx + ecx * 4]));
+	endif;
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end computeSum;
+
+
+/*
+ * This procedure computes the average value in the array and saves it into the extra "computation cell"
+ * The "computation cell" is located at index [num_cells] in the array.
+ * Using this procedure assumes that the procedure computeSum was called immediately prior to this one,
+ * because computeAverage uses the sum placed into the computation cell by computeSum, divided by num_cells
+ * returns the average value, which is then saved into the computation cell, overwriting the sum previously there.
+ * Well, if you know the average value you technically don't even need to know the sum anymore.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: char - The data type of the array cells 
+ * 								a - INT8
+ * 								b - INT16
+ * 								c - INT32
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used to hold the index of the "computation cell," which is simply num_cells
+ * It is used for scaled indexing purposes, getting to the computation cell in memory, as well as
+ * for dividing the sum in the computation cell by num_cells to get the average value.
+ * The eax and edx registers are used in the division.
+ * Since a division in HLA may generate a register fouling ex.DivisionError or ex.IntoInstr exceptions,
+ * and since the average value is returned to the computation cell in the array, not a register,
+ * all the HLA registers are pushed and popped.
+ * In the case that an exception does get generated, the $0F [0verFlow] value will get saved into the
+ * al register directly and bypass the pushes/pops.
+ * The rest of the registers effectively get preserved.
+ * This is done to display a custom error message for the user to see.
+ *
+ */
+procedure computeAverage(base_address: dword; num_cells: uns32; data_type: char);
+
+var
+	is_exception:	boolean;
+
+begin computeAverage;
+	
+	mov(false, is_exception);
+	
+	pushad();
+	
+	mov(base_address, ebx);
+	mov(num_cells, ecx);
+	// now ecx points to the extra "computation cell" in the array
+	
+	try
+		
+		// mov the resulting sum of the array into the "computation cell"
+		if (data_type == 'a') then  // INT8
+			
+			// The total sum will now be our new numerator.
+			mov((type int8 [ebx + ecx]), al);
+			cbw();  // sign extend al into ax
+			// The value in num_cells can only be as big as 10 for our purposes,
+			// so divinging by cl is the same as dividing by num_cells.
+			idiv(cl, ax);
+			// returns quotient to al
+			// returns remainder to ah
+			// mov the quotient, or the average value, into the computation cell
+			mov(al, (type int8 [ebx + ecx]));
+			
+		elseif (data_type == 'b') then  // INT16
+			
+			// The total sum will now be our new numerator.
+			mov((type int16 [ebx + ecx * 2]), ax);
+			cwd();  // sign extend ax into dx:ax
+			// The value in num_cells can only be as big as 10 for our purposes,
+			// so divinging by cx is the same as dividing by num_cells.
+			idiv(cx, dx:ax);
+			// returns quotient to ax
+			// returns remainder to dx
+			// mov the quotient, or the average value, into the computation cell
+			mov(ax, (type int16 [ebx + ecx * 2]));
+			
+		elseif (data_type == 'c') then  // INT32
+			
+			// The total sum will now be our new numerator.
+			mov((type int32 [ebx + ecx * 4]), eax);
+			cdq();  // sign extend eax into edx:eax
+			// divide by num_cells
+			idiv(ecx, edx:eax);
+			// returns quotient to eax
+			// returns remainder to edx
+			// mov the quotient, or the average value, into the computation cell
+			mov(eax, (type int32 [ebx + ecx * 4]));
+			
+		endif;
+		
+	exception(ex.IntoInstr)
+		mov(true, is_exception);
+	anyexception
+		mov(true, is_exception);
+		
+	endtry;
+	
+	popad();
+	
+	if (is_exception) then
+		mov($0F, al);
+	endif;
+	
+end computeAverage;
+
+
+// This is the main method of the program.
+// The program starts here at runtime.
+begin Dynamic_memory_management;
+	
+	// This is used as a label for a goto/jmp statement that resets the program.
+	BEGIN_PROGRAM:
+	
+	console.cls();
+	console.setAttrs(console.cyan, console.black);
+	
+	/* The following code draws the starting window. */
+	
+	stdout.put(top_left_connector_border);
+	stdout.putsSize("", 50, horizontal_border);
+	stdout.put(top_right_connector_border);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	stdout.putsSize("=", 50, '=');
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	console.setAttrs(console.black, console.cyan);
+	stdout.putsSize("     Enter the number of cells desired [2-10]", -50, ' ');
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	stdout.putsSize(" ", 50, ' ');
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(right_t_line);
+	stdout.putsSize("", 50, horizontal_line);
+	stdout.put(left_t_line, nl);
+	
+	for (mov(0, cl); cl < 10; inc(cl)) do
+		stdout.put(vertical_line);
+		stdout.putsSize(" ", 50, ' ');
+		stdout.put(vertical_line);
+		stdout.newln();
+	endfor;
+	
+	stdout.put(bottom_left_connector_border);
+	stdout.putsSize("", 50, horizontal_border);
+	stdout.put(bottom_right_connector_border);
+	stdout.newln();
+	
+	/* 
+	 * End of code that draws the starting window.
+	 * In other words, the starting window has now been drawn and we have user input.
+	 */
+	
+	// User input for the number of cells.
+	getUns32("  --> ", 2, 10, 3);
+	mov(eax, array_size);
+	inc(eax);  // add space for one more item
+	mov(eax, ebx);
+	
+	/* The following code draws the data type menu. */
+	
+	stdout.newln();
+	stdout.put(vertical_line);
+	console.setAttrs(console.black, console.cyan);
+	stdout.putsSize("     Enter desired data type", -50, ' ');
+	console.setAttrs(console.cyan, console.black);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	stdout.putsSize(" ", 50, ' ');
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(right_t_line);
+	stdout.putsSize("", 50, horizontal_line);
+	stdout.put(left_t_line, nl);
+	
+	// shows the user the availible data types
+	stdout.put(vertical_line);
+	stdout.put("  Availible data types:");
+	stdout.putsSize(" ", 4, ' ');
+	console.setAttrs(console.black, console.cyan);
+	stdout.put("INT8 ", nl);
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(vertical_line);
+	stdout.putsSize(" ", 27, ' ');
+	console.setAttrs(console.black, console.cyan);
+	stdout.put("INT16", nl);
+	console.setAttrs(console.cyan, console.black);
+	stdout.put(vertical_line);
+	stdout.putsSize(" ", 27, ' ');
+	console.setAttrs(console.black, console.cyan);
+	stdout.put("INT32", nl);
+	console.setAttrs(console.cyan, console.black);
+	
+	/* End of code that draws the data type menu. */
+	
+	// gets the data type from the user
+	console.gotoxy(1, 6);
+	getDataType("  --> ", 6);
+	// returns the character code into al
+	
+	// Now we know everything we need to allocate dynamic memory.
+	mov(al, array_data_type);
+	mov(ebx, eax);
+	if (array_data_type == 'b') then      // INT16
+		mul(2, eax);
+	elseif (array_data_type == 'c') then  // INT32
+		mul(4, eax);
+	endif;
+	mov(eax, ebx);
+	// ebx now contains the number of bytes to allocate
+	// This is done because the number of allocated bytes is displayed
+	// to the user later in the program.
+	
+	// zalloc allocates and zeroes out the bytes
+	mem.zalloc(ebx);  // zalloc returns address of array in eax
+	mov(eax, array_base_address);
+	
+	/* This code draws the memory allocation loading bar. */
+	
+	console.gotoxy(0, 12);
+	stdout.put(right_t_line);
+	stdout.putsSize("", 50, horizontal_line);
+	stdout.put(left_t_line, nl);
+	
+	stdout.put(vertical_line);
+	stdout.put("    Allocating ", (type uns32 ebx));
+	stdout.put(" bytes of dynamic memory." nl);
+	stdout.put(vertical_line);
+	
+	for (mov(0, cl); cl < 50; inc(cl)) do
+		stdout.put(solid_block_full);
+		os.mSleep(200);
+	endfor;
+	
+	/* End of code that draws the memory allocation loading bar. */
+	
+	os.sleep(2);
+	
+	// This code redraws the whole screen.
+	
+	console.cls();
+	console.setAttrs(console.cyan, console.black);
+	
+	stdout.put(top_left_connector_border);
+	stdout.putsSize("", 50, horizontal_border);
+	stdout.put(top_right_connector_border);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	stdout.putsSize("=", 50, '=');
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	for (mov(0, cl); cl < 13; inc(cl)) do
+		stdout.put(vertical_line);
+		stdout.putsSize(" ", 50, ' ');
+		stdout.put(vertical_line);
+		stdout.newln();
+	endfor;
+	
+	stdout.put(bottom_left_connector_border);
+	stdout.putsSize("", 50, horizontal_border);
+	stdout.put(bottom_right_connector_border);
+	stdout.newln();
+	
+	os.mSleep(300);
+	
+	// expands the window
+	mov(17, eax);
+	add(array_size, eax);
+	for (mov(15, ecx); ecx < eax; inc(ecx)) do
+		console.gotoxy(0, ecx);
+		stdout.put(vertical_line);
+		stdout.putsSize(" ", 50, ' ');
+		stdout.put(vertical_line, nl);
+		
+		stdout.put(bottom_left_connector_border);
+		stdout.putsSize("", 50, horizontal_border);
+		stdout.put(bottom_right_connector_border);
+		stdout.newln();
+		os.mSleep(300);
+	endfor;
+	
+	// Sets default values for the number system and data calculation.
+	mov('a', number_system);  // default number system is decimal
+	mov(1, data_calculation);  // default data calculation is sum
+	
+	/*
+	 * The main menu of options is displayed over and over again with each update,
+	 * and the user can make changes to the data cells, until they decide to reset or quit the program.
+	 */
+	forever
+		
+		// print out the title bar
+		console.gotoxy(1, 2);
+		stdout.putsSize(" ", 50, ' ');
+		console.gotoxy(1, 2);
+		stdout.putsSize("[", 8, ' ');
+		stdout.put(array_size);
+		if (array_data_type == 'a') then
+			stdout.put(" INT8");
+		elseif (array_data_type == 'b') then
+			stdout.put(" INT16");
+		elseif (array_data_type == 'c') then
+			stdout.put(" INT32");
+		endif;
+		stdout.put(" DATA CELLS IN ");
+		if (number_system == 'a') then
+			stdout.put("DECIMAL");
+		elseif (number_system == 'b') then
+			stdout.put("BINARY");
+		elseif (number_system == 'c') then
+			stdout.put("HEXADECIMAL");
+		endif;
+		stdout.put("]" nl);
+		
+		stdout.put(vertical_line);
+		stdout.putsSize("-", 50, '-');
+		stdout.newln();
+		stdout.newln();
+		
+		// Executes the determined data calculations.
+		if (data_calculation == 1) then
+			computeSum(array_base_address, array_size, array_data_type);
+			// returns the overflow code $0F into al register on overflow
+		elseif (data_calculation == 2) then
+			computeSum(array_base_address, array_size, array_data_type);
+			// returns the overflow code $0F into al register on overflow
+			computeAverage(array_base_address, array_size, array_data_type);
+			// returns the overflow code $0F into al register on exception
+		elseif (data_calculation == 3) then
+			computeMinimum(array_base_address, array_size, array_data_type);
+		elseif (data_calculation == 4) then
+			computeMaximum(array_base_address, array_size, array_data_type);
+		endif;
+		
+		// Clears the whole display of the data cells for updating it.
+		mov(array_size, ebx);
+		add(2, ebx);
+		for (mov(0, ecx); ecx < ebx; inc(ecx)) do
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+		endfor;
+		
+		// Prints the new values and formatting for the display of the data cells.
+		console.gotoxy(0, 5);
+		if (number_system == 'a') then
+			displayCellsDecimal(array_base_address, array_size, array_data_type, data_calculation);
+		elseif (number_system == 'b') then
+			displayCellsBinary(array_base_address, array_size, array_data_type, data_calculation);
+		elseif (number_system == 'c') then
+			displayCellsHexadecimal(array_base_address, array_size, array_data_type, data_calculation);
+		endif;
+		// Check al for the overflow code.
+		// If there is an overflow code, display an error message next to the computation cell.
+		if (al == $0F) then
+			// If an INT32 value is printed in binary, there is not enough space in the window,
+			// so print the error message on the next line.
+			if ((array_data_type == 'c') && (number_system == 'b')) then
+				mov(6, cursor_location);
+				mov(array_size, ebx);
+				add(ebx, cursor_location);
+				inc(cursor_location);
+				console.gotoxy(43, cursor_location);
+				console.setAttrs(console.cyan, console.blue);
+				stdout.put("[ERROR]" nl);
+				console.setAttrs(console.cyan, console.black);
+			// print the error message on the same line
+			else
+				mov(6, cursor_location);
+				mov(array_size, ebx);
+				add(ebx, cursor_location);
+				console.gotoxy(43, cursor_location);
+				console.setAttrs(console.cyan, console.blue);
+				stdout.put("[ERROR]" nl);
+				console.setAttrs(console.cyan, console.black);
+				stdout.put(vertical_line);
+				stdout.putsSize(" ", 50, ' ');
+				stdout.put(vertical_line, nl);
+			endif;
+		// no error message
+		else
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+		endif;
+		
+		// Prints out the text input form associated with the main options menu.
+		stdout.put(right_t_line);
+		stdout.putsSize("", 50, horizontal_line);
+		stdout.put(left_t_line, nl);
+		
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.putsSize("  Enter a number corresponding to the menu option", -50, ' ');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put(vertical_line);
+		stdout.newln();
+		
+		stdout.put(vertical_line);
+		stdout.putsSize(" ", 50, ' ');
+		stdout.put(vertical_line, nl);
+		
+		stdout.put(right_t_line);
+		stdout.putsSize("", 50, horizontal_line);
+		stdout.put(left_t_line, nl);
+		
+		// Prints out the main options menu.
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.put("[1]");
+		console.setAttrs(console.cyan, console.black);
+		stdout.putsSize(" Edit a cell", -47, ' ');
+		stdout.put(vertical_line, nl);
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.put("[2]");
+		console.setAttrs(console.cyan, console.black);
+		stdout.putsSize(" Change calculation", -47, ' ');
+		stdout.put(vertical_line, nl);
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.put("[3]");
+		console.setAttrs(console.cyan, console.black);
+		stdout.putsSize(" Change presentation", -47, ' ');
+		stdout.put(vertical_line, nl);
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.put("[4]");
+		console.setAttrs(console.cyan, console.black);
+		stdout.putsSize(" Reset and start over", -47, ' ');
+		stdout.put(vertical_line, nl);
+		stdout.put(vertical_line);
+		console.setAttrs(console.black, console.cyan);
+		stdout.put("[0]");
+		console.setAttrs(console.cyan, console.black);
+		stdout.putsSize(" Exit program", -47, ' ');
+		stdout.put(vertical_line, nl);
+		
+		// Gets the user's choice for the menu option.
+		mov(10, cursor_location);
+		mov(array_size, ebx);
+		add(ebx, cursor_location);
+		getUns32("  --> ", 0, 4, cursor_location);
+		// returns value to eax register
+		
+		// Jumps back up to the info bar above the form to print a new prompt text into it.
+		dec(cursor_location);
+		console.gotoxy(1, cursor_location);
+		
+		if ((type uns32 eax) == 1) then
+			
+			// Clears the info bar.
+			console.setAttrs(console.black, console.cyan);
+			stdout.putsSize(" ", 50, ' ');
+			// Prints the new prompt text into the info bar.
+			console.gotoxy(1, cursor_location);
+			stdout.putsSize("Select cell number for updating [", 35, ' ');
+			stdout.put(1, '-', array_size, "]:");
+			console.setAttrs(console.cyan, console.black);
+			stdout.newln();
+			
+			// Clears the input form.
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			
+			stdout.put(right_t_line);
+			stdout.putsSize("", 50, horizontal_line);
+			stdout.put(left_t_line, nl);
+			
+			/*
+			 * If the user chose option 1, to edit a cell,
+			 * then the menu of user options at the bottom is no longer needed, so clear it.
+			 */
+			for (mov(0, cl); cl < 5; inc(cl)) do
+				stdout.put(vertical_line);
+				stdout.putsSize(" ", 50, ' ');
+				stdout.put(vertical_line, nl);
+			endfor;
+			
+			// brings the cursor into the input form
+			mov(10, cursor_location);
+			mov(array_size, ebx);
+			add(ebx, cursor_location);
+			
+			mov(array_size, eax);
+			getInt8("  --> ", 1, (type int8 al), cursor_location);
+			// returns value to al register
+			
+			// This code highlights the number of the selected cell.
+			mov(4, cursor_location);
+			mov(0, ebx);
+			mov(al, bl);
+			add(ebx, cursor_location);
+			console.gotoxy(5, cursor_location);
+			if ((type int8 al) < 10) then
+				stdout.put(' ');
+			endif;
+			console.setAttrs(console.black, console.cyan);
+			stdout.put((type int8 al), ':');
+			console.setAttrs(console.cyan, console.black);
+			
+			/*
+  			 * This code overwrites the info bar for the input form
+			 * with a prompt asking the user to enter a new value for the selected cell.
+			 */
+			mov(9, cursor_location);
+			mov(array_size, ebx);
+			add(ebx, cursor_location);
+			console.gotoxy(1, cursor_location);
+			console.setAttrs(console.black, console.cyan);
+			stdout.putsSize(" ", 50, ' ');
+			console.gotoxy(1, cursor_location);
+			stdout.put("   Enter new value [");
+			if (array_data_type == 'a') then  // INT8
+				stdout.put(-128, " - ", 127);
+			elseif (array_data_type == 'b') then  // INT16
+				stdout.put(-32768, " - ", 32767);
+			elseif (array_data_type == 'c') then  // INT32
+				stdout.put(-2147483648, " - ", 2147483647);
+			endif;
+			stdout.put("]" nl);
+			console.setAttrs(console.cyan, console.black);
+			
+			// Updates the cursor location and brings the cursor into the input form.
+			mov(10, cursor_location);
+			mov(array_size, ebx);
+			add(ebx, cursor_location);
+			
+			mov(array_base_address, ebx);
+			mov(0, ecx);
+			mov(al, cl);
+			dec(cl);  // turns number into index
+			
+			if (array_data_type == 'a') then  // INT8
+				getInt8("  --> ", -128, 127, cursor_location);
+				// returns value to al register
+				mov(al, (type int8 [ebx + ecx]));
+			elseif (array_data_type == 'b') then  // INT16
+				getInt16("  --> ", -32768, 32767, cursor_location);
+				// returns value to ax register
+				mov(ax, (type int16 [ebx + ecx * 2]));
+			elseif (array_data_type == 'c') then  // INT32
+				getInt32("  --> ", -2147483648, 2147483647, cursor_location);
+				// returns value to eax register
+				mov(eax, (type int32 [ebx + ecx * 4]));
+			endif;
+			
+		elseif ((type uns32 eax) == 2) then
+			
+			console.setAttrs(console.black, console.cyan);
+			stdout.put(" Enter the number of the desired data calculation ");
+			console.setAttrs(console.cyan, console.black);
+			stdout.newln();
+			
+			// Clears the input form.
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			
+			stdout.put(right_t_line);
+			stdout.putsSize("", 50, horizontal_line);
+			stdout.put(left_t_line, nl);
+			
+			// Displays the different availible calculations to the user.
+			stdout.put(vertical_line);
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("[1]");
+			console.setAttrs(console.cyan, console.black);
+			stdout.putsSize(" Change to SUM", -47, ' ');
+			stdout.put(vertical_line, nl);
+			stdout.put(vertical_line);
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("[2]");
+			console.setAttrs(console.cyan, console.black);
+			stdout.putsSize(" Change to AVERAGE", -47, ' ');
+			stdout.put(vertical_line, nl);
+			stdout.put(vertical_line);
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("[3]");
+			console.setAttrs(console.cyan, console.black);
+			stdout.putsSize(" Change to MINIMUM VALUE", -47, ' ');
+			stdout.put(vertical_line, nl);
+			stdout.put(vertical_line);
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("[4]");
+			console.setAttrs(console.cyan, console.black);
+			stdout.putsSize(" Change to MAXIMUM VALUE", -47, ' ');
+			stdout.put(vertical_line, nl);
+			// Bottom row is empty.
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			
+			// Updates the cursor location and brings the cursor into the input form.
+			mov(10, cursor_location);
+			mov(array_size, ebx);
+			add(ebx, cursor_location);
+			
+			getInt8("  --> ", 1, 4, cursor_location);
+			// returns value to al register
+			mov(al, data_calculation);
+			
+		elseif ((type uns32 eax) == 3) then
+			
+			console.setAttrs(console.black, console.cyan);
+			stdout.putsSize("     Enter desired number system", -50, ' ');
+			console.setAttrs(console.cyan, console.black);
+			stdout.newln();
+			
+			// Clears the input form.
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			
+			stdout.put(right_t_line);
+			stdout.putsSize("", 50, horizontal_line);
+			stdout.put(left_t_line, nl);
+			
+			// shows the user the availible number systems
+			stdout.put(vertical_line);
+			stdout.put("  Availible number systems:");
+			stdout.putsSize(" ", 4, ' ');
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("  DECIMAL  ", nl);
+			console.setAttrs(console.cyan, console.black);
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 31, ' ');
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("  BINARY   ", nl);
+			console.setAttrs(console.cyan, console.black);
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 31, ' ');
+			console.setAttrs(console.black, console.cyan);
+			stdout.put("HEXADECIMAL", nl);
+			console.setAttrs(console.cyan, console.black);
+			
+			// The bottom two lines of the menu of user options should be empty.
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			stdout.put(vertical_line);
+			stdout.putsSize(" ", 50, ' ');
+			stdout.put(vertical_line, nl);
+			
+			// Moves the cursor into the input form and gets the number system from the user.
+			mov(10, cursor_location);
+			mov(array_size, ebx);
+			add(ebx, cursor_location);
+			console.gotoxy(1, cursor_location);
+			getNumberSystem("  --> ", cursor_location);  // returns a character code into the al register
+			mov(al, number_system);
+			
+		elseif ((type uns32 eax) == 4) then
+			
+			// deallocate memory for the dynamic array
+			mem.free(array_base_address);
+			
+			break;  // break the options menu loop
+			
+		elseif ((type uns32 eax) == 0) then
+			
+			// deallocate memory for the dynamic array
+			mem.free(array_base_address);
+			
+			jmp END_PROGRAM;
+			
+		endif;
+		
+	endfor;
+		
+	jmp BEGIN_PROGRAM;
+	
+	END_PROGRAM:
+	
+	// Moves cursor to the bottom of the window.
+	mov(18, cursor_location);
+	mov(array_size, edi);
+	add(edi, cursor_location);
+	console.gotoxy(0, cursor_location);
+	
+	console.setAttrs(console.white, console.black);
+	
+end Dynamic_memory_management;

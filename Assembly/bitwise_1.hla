@@ -1,0 +1,342 @@
+/*
+ * Bitwise Operations - shifts, rotates, and bitwise addition
+ *
+ * written by				Konstantin Rebrov
+ * created on				16 October 2017
+ * last modified on			23 October 2017
+ *
+ * This program features an interactive and aesthetically pleasing colorful
+ * retro-style terminal user interface.
+ *
+ * This program experiments with operations on bits in binary numbers.
+ *
+ * In the first part of the program, a binary value of the user's choice is
+ * rotated and shifted left and right by one bit.
+ *
+ * In the second part of the program, two binary values provided by the user
+ * are added together and the program prints a notification to the screen if the
+ * addition generates a carry/overflow bit.
+ *
+ * Helper procedures:
+ * getUns8 is used for user input validation.
+ * showBits is used for printing a byte value in binary
+ *
+ */
+program bitwise_1;
+
+#include("stdlib.hhf");  // HLA standard library
+
+
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8); @forward;
+
+
+/*
+ * This procedure reads in a binary value from the user with robust input handling.
+ * If the user enters invalid input, they are prompted again and again until valid
+ * input is indeed received.
+ *
+ * @param user_prompt: string - This string is displayed on the screen to inform
+ *                              the user that they need to enter a valid uns8 value.
+ *
+ * @param min_value: uns8 - The minimum value accepted as valid input.
+ *
+ * @param max_value: uns8 - The maximum value accepted as valid input.
+ *
+ * Registers:
+ * This procedure returns the input value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ */
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8);
+begin getUns8;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	stdout.put("-----BINARY-INPUT------" nl);
+	stdin.flushInput();  // clears the input buffer
+	forever
+		stdout.newln();
+		stdout.put(user_prompt, " [", min_value, "-", max_value, "] inclusive: ");
+		try
+			stdin.getu8();  // returns value to al
+			unprotected
+				breakif((type uns8 al) >= min_value && (type uns8 al) <= max_value);
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Out of range" nl);
+			console.setAttrs(console.green, console.black);
+		anyexception
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Invalid type" nl);
+			console.setAttrs(console.green, console.black);
+		endtry;
+	endfor;
+	
+	console.setAttrs(console.yellow, console.black);
+	stdout.put(" -USER INPUT ACCEPTED" nl);
+	console.setAttrs(console.green, console.black);
+	stdout.newln();
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getUns8;
+
+
+/*
+ * This procedure prints out an 8-bit value in binary with the format: %1111_1111
+ *
+ * @param bit8_value: byte - The 8-bit value that is to be printed in binary.
+ *
+ * Registers:
+ * This procedure pushes and pops the eax register because the al register is used
+ * to print the bits of the bit8_value.
+ */
+procedure showBits(bit8_value: byte);
+
+begin showBits;
+	
+	push(eax);
+	
+	stdout.put("%");
+	
+	mov(bit8_value, al);
+	if (and(128, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(64, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(32, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(16, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.put("_");
+	
+	mov(bit8_value, al);
+	if (and(8, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(4, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(2, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	mov(bit8_value, al);
+	if (and(1, al)) then
+		stdout.put(1);
+	else
+		stdout.put(0);
+	endif;
+	
+	stdout.newln();
+	
+	pop(eax);
+	
+end showBits;
+
+
+// this is the main method of the program
+// the program starts here at runtime
+begin bitwise_1;
+	
+	/*
+	 * The main program loop allows the user to reset the program and
+	 * display the interactive retro user interface once again, and enter fresh new input values.
+	 * The user can experiment with diferent values by repeating the program over and over again until
+	 * they choose to exit the executable. This feature is indended to make the program have a professional
+	 * look and feel to it, and also to avoid having the user to restart the program every single time they
+	 * want to enter new values.
+	 */
+	forever
+		
+		// Part One starts here
+		
+		console.cls();
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.put("PART ONE: ror,rol,shr,shl" nl);
+		stdout.newln();
+		
+		stdout.put("=================================" nl);
+		stdout.newln();
+		
+		getUns8("Enter a valid uns8 value", 1, 200);
+		// returns value to al register
+		
+		// displays the user input value in decimal and binary
+	    stdout.put("input [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("input [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// rotates the user input value 1 bit to the right
+		// and displays the result in decimal and binary
+		ror(1, al);
+		stdout.put("rotate right one [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("rotate right one [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// rotates the user input value 1 bit to the left
+		// and displays the result in decimal and binary
+		rol(1, al);
+		stdout.put("rotate left one [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("rotate left one [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// shifts the user input value 1 bit to the right
+		// and displays the result in decimal and binary
+		shr(1, al);
+		stdout.put("shift right one [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("shift right one [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// shifts the user input value 1 bit to the left
+		// and displays the result in decimal and binary
+		shl(1, al);
+		stdout.put("shift left one [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("shift left one [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("Hit ENTER to continue --> ");
+		stdin.readLn();
+		
+		// Part Two from here on down
+		
+		console.cls();
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.put("PART TWO: add" nl);
+		stdout.newln();
+		
+		stdout.put("=================================" nl);
+		stdout.newln();
+		
+		getUns8("Enter a valid uns8 value", 1, 200);  // get the first number
+		// returns value to al register
+		
+		// displays the first user input value in decimal and binary
+		stdout.put("first input [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("first input [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		push(eax);  // saves the al register [first input]
+		
+		getUns8("Enter a valid uns8 value", 1, 200);  // get the second number
+		// returns value to al register and overwrites the previous value in al
+		mov(al, bl);  // saves the second input to bl
+		
+		pop(eax);  // restores the al register [first input]
+		
+		// displays the second user input value in decimal and binary
+		stdout.put("second input [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 bl), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("second input [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(bl);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		add(al, bl);  // bl += al
+		if (@c) then  // Checks the carry flag
+			console.setAttrs(console.yellow, console.blue);
+			stdout.put("CARRY BIT SET/OVERFLOW" nl);
+			console.setAttrs(console.green, console.black);
+		endif;
+		
+		// prints the sum in decimal and binary
+		stdout.put("sum [decimal]: ");
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 bl), nl);
+		console.setAttrs(console.green, console.black);
+		stdout.put("sum [binary]:  ");
+		console.setAttrs(console.cyan, console.black);
+		showBits(bl);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("REPEAT MAIN PROGRAM? [y/n]: ");
+		stdin.flushInput();
+		try
+			stdin.getc();
+		anyexception
+			break;
+		endtry;
+		breakif((type char al) != 'y');
+		
+	endfor;
+	
+end bitwise_1;

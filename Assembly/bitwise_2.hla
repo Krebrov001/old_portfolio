@@ -1,0 +1,456 @@
+/*
+ * Bitwise Operations - using bitwise logical operators
+ *
+ * written by				Konstantin Rebrov
+ * created on				25 October 2017
+ * last modified on			25 October 2017
+ *
+ * I created a custom "hacker style" interactive terminal user interface for this program.
+ * This program is indended to be aesthetically pleasing and intuitive to use.
+ * The user interface is very colorful and pretty.
+ *
+ * This program prints the user's input in decimal and binary, and does bitwise
+ * operations on the input values.
+ * The purpose of this program is to see how signed and unsigned integers are
+ * represented as binary, and using bitwise operations to modify binary values.
+ *
+ * In the first part of the program,
+ * not() is used to produce the bitwise complement of the user's input [unsigned]
+ *
+ * In the second part of the program,
+ * Each n corresponding to a set bit is printed, where n represents 2^n in binary.
+ * Then all bits are set to 1.
+ *
+ * In the third part of the program,
+ * First the lower nibble of the user's input [unsigned] as a binary value is cleared.
+ * Next, the upper nibble of the binary value is cleared.
+ *
+ * In the fourth part of the program,
+ * xor() is used to produce the bitwise complement of the user's input [signed]
+ * Then xor() is used is used to zero out the user's input value.
+ *
+ * Helper procedures:
+ * getUns8 is used for unsigned input validation.
+ * getInt8 is used for signed input validation.
+ * showBits is used for printing a byte value in binary
+ *
+ */
+program bitwise_2;
+
+#include("stdlib.hhf");
+
+
+// procedure forward declarations
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8); @forward;
+procedure getInt8(user_prompt: string; min_value: int8; max_value: int8); @forward;
+
+
+/*
+ * This procedure reads in an uns8 value from the user with robust input handling.
+ * If the user enters invalid input, they are prompted again and again until a valid
+ * unsigned 8-bit value is entered.
+ *
+ * @param user_prompt: string - This string is displayed on the screen to inform
+ *                              the user that they need to enter a valid uns8 value.
+ *
+ * @param min_value: uns8 - The minimum value accepted as valid input.
+ *
+ * @param max_value: uns8 - The maximum value accepted as valid input.
+ *
+ * Registers:
+ * This procedure returns the user input as an unsigned value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ */
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8);
+begin getUns8;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	stdout.putsSize("UNSIGNED", 13, '-');
+	stdout.putsSize("-INT-INPUT", -16, '-');
+	stdout.newln();
+	stdin.flushInput();  // clears the input buffer
+	forever
+		stdout.newln();
+		stdout.put(user_prompt, " [", min_value, " - ", max_value, "] inclusive: ");
+		try
+			stdin.getu8();  // returns value to al
+			unprotected
+				breakif((type uns8 al) >= min_value && (type uns8 al) <= max_value);
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Out of range" nl);
+			console.setAttrs(console.green, console.black);
+		anyexception
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Invalid type" nl);
+			console.setAttrs(console.green, console.black);
+		endtry;
+	endfor;
+	
+	console.setAttrs(console.yellow, console.black);
+	stdout.put(" -UNSIGNED VALUE ACCEPTED" nl);
+	console.setAttrs(console.green, console.black);
+	stdout.newln();
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getUns8;
+
+
+/*
+ * This procedure reads in an int8 value from the user with robust input handling.
+ * If the user enters invalid input, they are prompted again and again until a valid
+ * signed 8-bit value is entered.
+ *
+ * @param user_prompt: string - This string is displayed on the screen to inform
+ *                              the user that they need to enter a valid int8 value.
+ *
+ * @param min_value: int8 - The minimum value accepted as valid input.
+ *
+ * @param max_value: int8 - The maximum value accepted as valid input.
+ *
+ * Registers:
+ * This procedure returns the user input as a signed value to the al register.
+ * A generated exception may screw up the other registers, so they are pushed and popped.
+ */
+procedure getInt8(user_prompt: string; min_value: int8; max_value: int8);
+begin getInt8;
+	
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	stdout.putsSize("SIGNED", 12, '-');
+	stdout.putsSize("-INT-INPUT", -17, '-');
+	stdout.newln();
+	stdin.flushInput();  // clears the input buffer
+	forever
+		stdout.newln();
+		stdout.put(user_prompt, " [", min_value, " - ", max_value, "] inclusive: ");
+		try
+			stdin.geti8();  // returns value to al
+			unprotected
+				breakif((type int8 al) >= min_value && (type int8 al) <= max_value);
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Out of range" nl);
+			console.setAttrs(console.green, console.black);
+		anyexception
+			console.setAttrs(console.red, console.black);
+			stdout.put(" -ERROR: Invalid type" nl);
+			console.setAttrs(console.green, console.black);
+		endtry;
+	endfor;
+	
+	console.setAttrs(console.yellow, console.black);
+	stdout.put(" -SIGNED VALUE ACCEPTED" nl);
+	console.setAttrs(console.green, console.black);
+	stdout.newln();
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+end getInt8;
+
+
+/*
+ * This procedure prints out an 8-bit value in binary with the format: %1111_1111
+ *
+ * This is the new and improved version of the showBits() procedure.
+ * I used J Boyd Trolinger's Algorithm:
+ * Each bit is shifted over to the 0 [first] bit position, and the resulting value is
+ * and() with 1 to determine if that bit is a 1 or 0.
+ * If the four most significant bits have been processed, a "_" is printed.
+ *
+ * @param bit8_value: byte - The 8-bit value that is to be printed in binary.
+ *
+ * Registers:
+ * This procedure pushes and pops the ecx register because the cl and ch registers
+ * are used to print the bits of the bit8_value.
+ */
+procedure showBits(bit8_value: byte);
+
+begin showBits;
+	
+	push(ecx);
+	
+	stdout.put("%");
+	for (mov(7, cl); (type int8 cl) >= 0; dec(cl)) do
+		// since and() overwrites the original value,
+		// I have to mov() it to a register
+		mov(bit8_value, ch);
+		shr(cl, ch);
+		and(1, ch);
+		stdout.put((type uns8 ch));
+		if (cl = 4) then
+			stdout.put("_");
+		endif;
+	endfor;
+	
+	stdout.newln();
+	
+	pop(ecx);
+	
+end showBits;
+
+
+// this is the main method of the program
+// the program starts here at runtime
+begin bitwise_2;
+	
+	/*
+	 * The main program loop allows the user to reset the program and
+	 * display the interactive retro user interface once again, and enter fresh new input values.
+	 * The user can experiment with diferent values by repeating the program over and over again until
+	 * they choose to exit the executable. This feature is indended to make the program have a professional
+	 * look and feel to it, and also to avoid having the user to restart the program every single time they
+	 * want to enter new values.
+	 */
+	forever
+		
+		/* Part One */
+		
+		console.cls();
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.putsSize("PART ONE: not", 25, ' ');
+		stdout.newln();
+		stdout.newln();
+		
+		stdout.putsSize("=", 50, '=');
+		stdout.newln();
+		stdout.newln();
+		
+		getUns8("Enter a valid uns8 value", 1, 200);
+		// returns unsigned value to al register
+		
+		// displays the unsigned input value in decimal and binary
+		stdout.putsSize("input [decimal]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("input  [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// displays the bitwise complement of the unsigned value
+		not(al);
+		stdout.putsSize("bitwise complement [decimal]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("bitwise complement  [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("Press ENTER to continue ");
+		stdin.readLn();
+		console.cls();
+		
+		/* Part Two */
+		
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.putsSize("PART TWO: and/or", 25, ' ');
+		stdout.newln();
+		stdout.newln();
+		
+		stdout.putsSize("=", 50, '=');
+		stdout.newln();
+		stdout.newln();
+		
+		
+		getInt8("Enter a valid int8 value", -100, 100);
+		// returns signed value to al register
+		
+		// displays the signed input value in decimal and binary
+		stdout.putsSize("input [decimal]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type int8 al), nl);
+		
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("input  [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// displays which bits in the number are set
+		// Description of bits: %7654_3210
+		mov(1, ch);
+		stdout.putsSize("bits that are set:", 32, '-');
+		console.setAttrs(console.cyan, console.black);
+		for (mov(0, cl); (type uns8 cl) < 8; inc(cl)) do
+			mov(al, ah);
+			if (and(ch, ah)) then
+				stdout.put(" ", (type uns8 cl));
+			endif;
+			shl(1, ch);
+		endfor;
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		stdout.newln();
+		
+		// sets all the bits
+		or(%1111_1111, al);
+		// displays the resulting value in binary
+		stdout.putsSize("all bits now set [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("Press ENTER to continue ");
+		stdin.readLn();
+		console.cls();
+		
+		/* Part Three */
+		
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.putsSize("PART THREE: and", 25, ' ');
+		stdout.newln();
+		stdout.newln();
+		
+		stdout.putsSize("=", 50, '=');
+		stdout.newln();
+		stdout.newln();
+		
+		getUns8("Enter a valid uns8 value", 1, 200);
+		// returns unsigned value to al register
+		
+		// displays the unsigned input value in decimal and binary
+		stdout.putsSize("input [decimal]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type uns8 al), nl);
+		
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("input  [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// preserves the value of al for later use
+		mov(al, bl);
+		
+		// clears out the lower nibble
+		and(%1111_0000, al);
+		// displays the result
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("lower nibble cleared [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// preserves the resulting value of al for later use
+		mov(al, bh);
+		
+		// restores the original value of al
+		mov(bl, al);
+		
+		// clears out the upper nibble
+		and(%0000_1111, al);
+		// displays the result
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("upper nibble cleared [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("Press ENTER to continue ");
+		stdin.readLn();
+		console.cls();
+		
+		/* Part Four */
+		
+		console.setAttrs(console.green, console.black);
+		
+		stdout.newln();
+		stdout.putsSize("PART FOUR: xor", 25, ' ');
+		stdout.newln();
+		stdout.newln();
+		
+		stdout.putsSize("=", 50, '=');
+		stdout.newln();
+		stdout.newln();
+		
+		getInt8("Enter a valid int8 value", -100, 100);
+		// returns signed value to al register
+		
+		// displays the signed input value in decimal and binary
+		stdout.putsSize("input [decimal]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		stdout.put((type int8 al), nl);
+		
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("input  [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// preserves the value of al for later use
+		mov(al, dl);
+		
+		// produces the bitwise complement of al
+		xor(%1111_1111, al);
+		// displays the resultant value
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("bitwise complement [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		// preserves the resultant value for later use
+		mov(al, dh);
+		
+		// restores the original value of al
+		mov(dl, al);
+		
+		// zero out the user's input value
+		xor(al, al);
+		// displays the resultant value
+		console.setAttrs(console.green, console.black);
+		stdout.putsSize("zeroed out [binary]: ", 33, '-');
+		console.setAttrs(console.cyan, console.black);
+		showBits(al);
+		console.setAttrs(console.green, console.black);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.put("REPEAT MAIN PROGRAM? [y/n]: ");
+		stdin.flushInput();
+		try
+			stdin.getc();
+		anyexception
+			break;
+		endtry;
+		breakif((type char al) != 'y');
+		
+	endfor;
+	
+end bitwise_2;

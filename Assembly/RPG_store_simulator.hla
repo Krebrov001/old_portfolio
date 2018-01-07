@@ -1,0 +1,1041 @@
+/*
+ * RPG Store Simulator
+ *
+ * written by				Konstantin Rebrov
+ * created on				29 September 2017
+ * last modified on			07 October   2017
+ *
+ * This program simulates an RPG store.
+ *
+ * Verlin's Magical Items Shop
+ * This unique store has all the items needed for a wizard or hero, or a wizard/hero.
+ * The brave adventurer is prompted to buy any one of the 7 rare and precious items.
+ * A dynamic display is printed as a table any time the user wants to buy another item.
+ * If the user decides to quit shopping, they go to the checkout desk to pay for the purchase.
+ * If they give any counterfeit money to the cashier, they are prompted for a valid monetary amount.
+ * If the purchase is valid, then the receipt is printed, and the customer is given their change
+ * in the form of fantasy coins.
+ *
+ * Program structure:
+ * First, the standard libraries are imported.
+ * The next section of the program defines the constants and variables.
+ * After that, the helper procedures are defined. Some of these procedures print info to the console,
+ * other ones take input from the user. Detailed descriptions are provided in the header comments
+ * of the procedures.
+ * The main logic of the program is contained in the main method.
+ * There are comments in the main method that explain what each piece of code does.
+ *
+ * Registers:
+ * The accumulator is used mainly for user input and numerical computations.
+ * The bl register is used to determine if the user wants to buy an item, and so stores an integer identifying that item,
+ * or a 0 is stored signifying that the checkout process should take place.
+ * The cl register is used as a loop counter.
+ *
+ */
+program RPG_store;
+
+// also includes console.hhf
+#include("stdlib.hhf");
+
+// defines values for special characters used in console output
+const
+	// these characters draw the borders for the items table and receipt
+	top_left_corner:	char := (type char 201);
+	top_right_corner:	char := (type char 187);
+	bottom_left_corner:	char := (type char 200);
+	bottom_right_corner: char := (type char 188);
+	horizontal_border:	char := (type char 205);
+	vertical_border:	char := (type char 186);
+	left_cross_border:	char := (type char 204);
+	right_cross_border:	char := (type char 185);
+	up_cross_border:	char := (type char 202);
+	down_cross_border:	char := (type char 203);
+	cross_border:		char := (type char 206);
+	left_cross_line:	char := (type char 199);
+	right_cross_line:	char := (type char 182);
+	horizontal_line:	char := (type char 196);
+	vertical_line:		char := (type char 179);
+	down_cross_line:	char := (type char 194);
+	top_left_line_corner:		char := (type char 218);
+	bottom_left_line_corner:	char := (type char 192);
+	top_right_line_corner:		char := (type char 191);
+	bottom_right_line_corner:	char := (type char 217);
+	
+	// these characters replace US coins with fantasy money
+	dollar_sign:	char := (type char 233);
+	quarter_sign:	char := (type char 244);
+	dime_sign:		char := (type char 229);
+	nickel_sign:	char := (type char 235);
+	penny_sign:		char := (type char 231);
+
+// these constants define fixed price of the items
+readonly
+	mushrooms_price:		uns8 := 8;
+	amulet_price:			uns8 := 15;
+	greatsword_price:		uns8 := 90;
+	battle_axe_price:		uns8 := 120;
+	antidote_price:			uns8 := 75;
+	flying_carpet_price:	uns8 := 190;
+	strength_potion_price:	uns8 := 240;
+
+// variables in the program that can change
+static
+	// the quantities of the items
+	mushrooms_quantity:			uns8 := 12;
+	amulet_quantity:			uns8 := 15;
+	greatsword_quantity:		uns8 := 5;
+	battle_axe_quantity:		uns8 := 8;
+	antidote_quantity:			uns8 := 10;
+	flying_carpet_quantity:		uns8 := 4;
+	strength_potion_quantity:	uns8 := 2;
+	
+	// how many items the user bought
+	mushrooms_num_bought:		uns8 := 0;
+	amulet_num_bought:			uns8 := 0;
+	greatsword_num_bought:		uns8 := 0;
+	battle_axe_num_bought:		uns8 := 0;
+	antidote_num_bought:		uns8 := 0;
+	flying_carpet_num_bought:	uns8 := 0;
+	strength_potion_num_bought:	uns8 := 0;
+	
+	// the total price for each kind of item
+	mushrooms_total_price:		uns8 := 0;
+	amulet_total_price:			uns8 := 0;
+	greatsword_total_price:		uns16 := 0;
+	battle_axe_total_price:		uns16 := 0;
+	antidote_total_price:		uns16 := 0;
+	flying_carpet_total_price:	uns16 := 0;
+	strength_potion_total_price: uns16 := 0;
+	
+	// variables that are involved in user input
+	num_items_bought:	uns8  := 0;
+	total_cost:			uns16 := 0;
+	user_choice: 		uns8;
+	user_credits:		uns16;
+	
+	// the numbers of each kind of coins in the change
+	num_dollars:	uns16 := 0;
+	num_quarters:	uns8 := 0;
+	num_dimes:		uns8 := 0;
+	num_nickels:	uns8 := 0;
+	num_pennies:	uns8 := 0;
+
+
+/*
+ * This procedure prints the horizontal borders
+ * that seperate the rows with product info.
+ */
+procedure printRowSeparator;
+
+begin printRowSeparator;
+	
+	stdout.put(left_cross_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(cross_border);
+	for (mov(0, cl); cl < 36; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(cross_border);
+	for (mov(0, cl); cl < 7; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(cross_border);
+	for (mov(0, cl); cl < 8; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(right_cross_border);
+	stdout.newln();
+	
+end printRowSeparator;
+
+
+/*
+ * This procedure prints the bottom border of the whole table.
+ */
+procedure printTableBottom;
+
+begin printTableBottom;
+	
+	stdout.put(bottom_left_corner);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(up_cross_border);
+	for (mov(0, cl); cl < 36; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(up_cross_border);
+	for (mov(0, cl); cl < 7; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(up_cross_border);
+	for (mov(0, cl); cl < 8; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(bottom_right_corner);
+	stdout.newln();
+	
+end printTableBottom;
+
+
+/*
+ * If you have an item whose description takes up more than one line,
+ * then it makes the whole row thicker. This procedure fills in the empty
+ * lines in the price and # left collumns.
+ */
+procedure printEmptyPriceCollumns;
+
+begin printEmptyPriceCollumns;
+	
+	stdout.put("       ");
+	stdout.put(vertical_border);
+	stdout.put("        ");
+	stdout.put(vertical_border);
+	stdout.newln();
+	
+end printEmptyPriceCollumns;
+
+
+/*
+ * This procedure actually prints the item's variables into the price and # left collumns,
+ * making those collumns "full." The price of the item and its quantity are passed in as
+ * parameters to the procedure. The numbers are formatted neatly based on how many characters
+ * they take up on the screen.
+ */
+procedure printFullPriceCollumns(item_price: uns8; item_quantity: uns8);
+
+begin printFullPriceCollumns;
+	
+	if (item_price >= 100) then
+		stdout.put(" ", item_price, " ", dollar_sign, " ");
+	elseif (item_price >= 10) then
+		stdout.put("  ", item_price, " ", dollar_sign, " ");
+	elseif (item_price < 10) then
+		stdout.put("   ", item_price, " ", dollar_sign, " ");
+	endif;
+	stdout.put(vertical_border);
+	if (item_quantity >= 10) then
+		stdout.put("   ", item_quantity, "   ");
+	elseif (item_quantity < 10) then
+		stdout.put("    ", item_quantity, "   ");
+	endif;
+	stdout.put(vertical_border);
+	stdout.newln();
+	
+end printFullPriceCollumns;
+
+
+/*
+ * This procedure prints the header for the menu table.
+ */
+procedure printTableHeader;
+
+begin printTableHeader;
+	
+	console.setAttrs(console.yellow, console.blue);
+	
+	stdout.put(top_left_corner);
+	for (mov(0, cl); cl < 76; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(top_right_corner);
+	stdout.newln();
+	
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 76; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.newln();
+	
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 24; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put("Verlin's Magical Items Shop ");
+	for (mov(0, cl); cl < 24; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.newln();
+	
+	stdout.put(left_cross_line);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(down_cross_line);
+	for (mov(0, cl); cl < 36; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(down_cross_line);
+	for (mov(0, cl); cl < 7; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(down_cross_line);
+	for (mov(0, cl); cl < 8; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(right_cross_line);
+	stdout.newln();
+	
+	stdout.put(vertical_border);
+	stdout.put("         ");
+	stdout.put("Item");
+	stdout.put("         ");
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 12; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put("Description ");
+	for (mov(0, cl); cl < 12; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.put(" Price ");
+	stdout.put(vertical_line);
+	stdout.put(" # left ");
+	stdout.put(vertical_border);
+	stdout.newln();
+	
+	stdout.put(left_cross_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(down_cross_border);
+	for (mov(0, cl); cl < 36; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(down_cross_border);
+	for (mov(0, cl); cl < 7; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(down_cross_border);
+	for (mov(0, cl); cl < 8; inc(cl)) do
+		stdout.put(horizontal_border);
+	endfor;
+	stdout.put(right_cross_border);
+	stdout.newln();
+	
+end printTableHeader;
+
+
+/*
+ * This procedure prints out the rows in the menu table,
+ * displaying each item's name, description, price, and # left.
+ */
+procedure printTableRows;
+
+begin printTableRows;
+
+	console.setAttrs(console.magenta, console.cyan);
+	
+	// Blue Sleeper Mushrooms
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put("Eating one mushroom will cause you  ");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	stdout.put(vertical_border);
+	stdout.put("Blue Sleeper Mushrooms");
+	stdout.put(vertical_border);
+	stdout.put("to go into a trance-like state of   ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(mushrooms_price, mushrooms_quantity);
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put("higher consciousness. Overdosage can");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put("lead to vomiting, diarrhea, fainting");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	
+	printRowSeparator();
+	
+	// Amulet of Osiris
+	stdout.put(vertical_border);
+	stdout.put("   Amulet of Osiris   ");
+	stdout.put(vertical_border);
+	stdout.put(" Protects against spells and curses ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(amulet_price, amulet_quantity);
+	
+	printRowSeparator();
+	
+	// Hyperborean Greatsword
+	stdout.put(vertical_border);
+	stdout.put("Hyperborean Greatsword");
+	stdout.put(vertical_border);
+	stdout.put("Penetrates through most dragon hides");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(greatsword_price, greatsword_quantity);
+	
+	printRowSeparator();
+	
+	// Asgardian Battle Axe
+	stdout.put(vertical_border);
+	stdout.put(" Asgardian Battle Axe ");
+	stdout.put(vertical_border);
+	stdout.put("Good for bashing the zombie knights ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(battle_axe_price, battle_axe_quantity);
+	
+	printRowSeparator();
+	
+	// Voodo Potion Antidote
+	stdout.put(vertical_border);
+	stdout.put("Voodo Potion Antidote ");
+	stdout.put(vertical_border);
+	stdout.put("  Powerful antidote against potions ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(antidote_price, antidote_quantity);
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put("   prepared with voodo black magic  ");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	
+	printRowSeparator();
+	
+	// Flying Carpet
+	stdout.put(vertical_border);
+	stdout.put("     Flying Carpet    ");
+	stdout.put(vertical_border);
+	stdout.put(" Whether battling dragons or taking ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(flying_carpet_price, flying_carpet_quantity);
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put(" princesses on dates, Flying Carpet ");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	stdout.put(vertical_border);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_border);
+	stdout.put("will quickly take you there in style");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	
+	printRowSeparator();
+	
+	// Herculean Strength Potion
+	stdout.put(vertical_border);
+	stdout.put("  Herculean Strength  ");
+	stdout.put(vertical_border);
+	stdout.put(" Gives you the strength of Hercules ");
+	stdout.put(vertical_border);
+	printFullPriceCollumns(strength_potion_price, strength_potion_quantity);
+	stdout.put(vertical_border);
+	stdout.put("        Potion        ");
+	stdout.put(vertical_border);
+	stdout.put(" as long as the bitter taste lasts  ");
+	stdout.put(vertical_border);
+	printEmptyPriceCollumns();
+	
+	printTableBottom();
+	
+	console.setAttrs(console.white, console.black);
+	
+end printTableRows;
+
+
+/*
+ * This procedure gets the user's choice of which row containing
+ * the desired item to select. Either a valid row number [1-7] inclusive
+ * is returned to al as an uns8 value, or 0 is returned to al, signifying
+ * that the user entered invalid input, means to quit shopping.
+ * If the user entered a 0, that 0 is returned normally. All other invalid
+ * input is marked as a 0 and returned to al.
+ */
+procedure chooseItemNumber;
+
+begin chooseItemNumber;
+
+	stdout.put(horizontal_line, horizontal_line, "> ");
+	
+	try
+		stdin.getu8();  // returns input value to al
+		                // may be overriden by the mov statements
+	anyexception  // anything that generates an exception goes here
+		// catches strings, negative numbers, or positive numbers > 255
+		mov(0, al);
+	endtry;
+	if ((type uns8 al) > 7) then  // catches invalid row numbers
+		mov(0, al);
+	endif;
+	
+end chooseItemNumber;
+
+
+/*
+ * This procedure prompts the user to enter how many credits they have to
+ * pay for the items that they bought. It is part of the checkout process.
+ * This procedure uses a forever loop for error checking. If the user does not enter
+ * a valid uns16 value for the credits, the program will just keep bugging them.
+ * This program returns the number of credits as an uns16 value to the ax register.
+ */
+procedure enterUserCredits;
+
+begin enterUserCredits;
+	
+	forever
+		try
+			stdin.getu16();  // returns an uns16 value to the ax register
+			// continues on to here if the previous statement succeeds
+			
+			// the exception handling overwrites the bl register
+			// 0 is moved into bl to prevent a nasty bug
+			// bl would have been 0 anyway when this procedure is called
+			// now bl's former value is restored
+			mov(0, bl);
+			unprotected break;
+		anyexception
+			stdout.newln();
+			stdout.put("You did not enter a valid value in credits [", dollar_sign, "].", nl);
+			stdout.put("You cannot fool Verlin [Ph.D in Sorcery]." nl);
+			stdout.put("Come on, how many credits [", dollar_sign, "] do you really have? ");
+		endtry;
+	endfor;
+	
+end enterUserCredits;
+
+
+/*
+ * This procedure neatly formats and prints the receipt.
+ * The name, quantity bought, and total cost for that
+ * kind of item is displayed for all purchased items.
+ * Additionally, the total cost of the whole purchase is printed to the screen.
+ */
+procedure printReceipt;
+
+begin printReceipt;
+	
+	console.cls();
+	console.setAttrs(console.black, console.white);
+	
+	stdout.put(top_left_line_corner);
+	for (mov(0, cl); cl < 22; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(horizontal_line);
+	for (mov(0, cl); cl < 8; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(horizontal_line);
+	stdout.put(horizontal_line);
+	for (mov(0, cl); cl < 13; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(top_right_line_corner);
+	stdout.newln();
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 19; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(" Receipt");
+	for (mov(0, cl); cl < 19; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.newln();
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 46; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 9; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put("Item");
+	for (mov(0, cl); cl < 9; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(" # bought ");
+	stdout.put(" combined cost");
+	stdout.put(vertical_line);
+	stdout.newln();
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 46; inc(cl)) do
+		stdout.put("-");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	if (mushrooms_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put("Blue Sleeper Mushrooms ");
+		stdout.put("   ");
+		if (mushrooms_num_bought >= 10) then
+			stdout.put(mushrooms_num_bought);
+		else
+			stdout.put(" ");
+			stdout.put(mushrooms_num_bought);
+		endif;
+		for (mov(0, cl); cl < 13; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(mushrooms_num_bought, al);
+		mul(mushrooms_price);
+		mov(al, mushrooms_total_price);
+		if (mushrooms_total_price >= 10) then
+			stdout.put(mushrooms_total_price);
+		else
+			stdout.put(" ");
+			stdout.put(mushrooms_total_price);
+		endif;
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (amulet_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put("   Amulet of Osiris    ");
+		stdout.put("   ");
+		if (amulet_num_bought >= 10) then
+			stdout.put(amulet_num_bought);
+		else
+			stdout.put(" ");
+			stdout.put(amulet_num_bought);
+		endif;
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(amulet_num_bought, al);
+		mul(amulet_price);
+		mov(al, amulet_total_price);
+		if (amulet_total_price >= 100) then
+			stdout.put(amulet_total_price);
+		else
+			stdout.put(" ");
+			stdout.put(amulet_total_price);
+		endif;
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (greatsword_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put("Hyperborean Greatsword ");
+		stdout.put("    ");
+		stdout.put(greatsword_num_bought);
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(greatsword_num_bought, al);
+		mul(greatsword_price);
+		mov(ax , greatsword_total_price);
+		if (greatsword_total_price >= 100) then
+			stdout.put(greatsword_total_price);
+		else
+			stdout.put(" ");
+			stdout.put(greatsword_total_price);
+		endif;
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (battle_axe_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put(" Asgardian Battle Axe  ");
+		stdout.put("    ");
+		stdout.put(battle_axe_num_bought);
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(battle_axe_num_bought, al);
+		mul(battle_axe_price);
+		mov(ax , battle_axe_total_price);
+		stdout.put(battle_axe_total_price);
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (antidote_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put(" Voodo Potion Antidote ");
+		stdout.put("   ");
+		if (antidote_num_bought < 10) then
+			stdout.put(" ");
+			stdout.put(antidote_num_bought);
+		else
+			stdout.put(antidote_num_bought);
+		endif;
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(antidote_num_bought, al);
+		mul(antidote_price);
+		mov(ax , antidote_total_price);
+		if (antidote_total_price >= 100) then
+			stdout.put(antidote_total_price);
+		else
+			stdout.put(" ");
+			stdout.put(antidote_total_price);
+		endif;
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (flying_carpet_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put("     ");
+		stdout.put("Flying Carpet");
+		for (mov(0, cl); cl < 9; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		stdout.put(flying_carpet_num_bought);
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(flying_carpet_num_bought, al);
+		mul(flying_carpet_price);
+		mov(ax , flying_carpet_total_price);
+		stdout.put(flying_carpet_total_price);
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	if (strength_potion_num_bought != 0) then
+		stdout.put(vertical_line);
+		stdout.put("  Herculean Strength");
+		for (mov(0, cl); cl < 26; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		stdout.put(vertical_line);
+		stdout.newln();
+		stdout.put(vertical_line);
+		for (mov(0, cl); cl < 8; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		stdout.put("Potion");
+		for (mov(0, cl); cl < 13; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		stdout.put(strength_potion_num_bought);
+		for (mov(0, cl); cl < 12; inc(cl)) do
+			stdout.put(" ");
+		endfor;
+		mov(strength_potion_num_bought, al);
+		mul(strength_potion_price);
+		mov(ax , strength_potion_total_price);
+		stdout.put(strength_potion_total_price);
+		stdout.put(" ");
+		stdout.put(dollar_sign);
+		stdout.put(" ");
+		stdout.put(vertical_line);
+		stdout.newln();
+	endif;
+	
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 46; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 36; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put("total cost");
+	stdout.put(vertical_line);
+	stdout.newln();
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 39; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	if (total_cost >= 1000) then
+		stdout.put(total_cost, " ", dollar_sign, " ");
+	elseif (total_cost >= 100) then
+		stdout.put(" ");
+		stdout.put(total_cost, " ", dollar_sign, " ");
+	elseif (total_cost >= 10) then
+		stdout.put("  ");
+		stdout.put(total_cost, " ", dollar_sign, " ");
+	else
+		stdout.put("   ");
+		stdout.put(total_cost, " ", dollar_sign, " ");
+	endif;
+	stdout.put(vertical_line);
+	stdout.newln();
+	
+	stdout.put(vertical_line);
+	for (mov(0, cl); cl < 46; inc(cl)) do
+		stdout.put(" ");
+	endfor;
+	stdout.put(vertical_line);
+	stdout.newln();
+	stdout.put(bottom_left_line_corner);
+	for (mov(0, cl); cl < 46; inc(cl)) do
+		stdout.put(horizontal_line);
+	endfor;
+	stdout.put(bottom_right_line_corner);
+	stdout.newln();
+	
+	console.setAttrs(console.white, console.black);
+	
+end printReceipt;
+
+
+// This is the main method of the program.
+// The program starts here at run time.
+begin RPG_store;
+	
+	forever  // this forever loop causes the program to repeat as long as the user continues shopping
+		
+		console.cls();
+		
+		// The table consists of two parts:
+		// the table header, and the table rows
+		printTableHeader();
+		printTableRows();
+		
+		stdout.put("Shopping Cart:" nl);
+		stdout.put("      ", num_items_bought, " items", nl);
+		stdout.put("Total cost: ", total_cost, " ", dollar_sign, nl);
+		stdout.newln();
+		
+		stdout.put("Enter the row number of the item you want to buy." nl);
+		stdout.put("For example, enter 2 to buy the Amulet of Osiris." nl);
+		stdout.put("Enter 0 or a non-existent row number for checkout." nl);
+		stdout.newln();
+		
+		chooseItemNumber();  // returns value to al
+		/*
+		 * The bl register has a special purpose in my program. It stores the number of the item
+		 * that the user selected, or 0 if they didn't select anything. The value from al is saved
+		 * into bl to prevent it from getting overwritten by other calculations that regularly
+		 * overwrite the accumulator.
+		 */
+		mov(al, bl);
+		
+		stdout.newln();
+		if (bl = 0) then  // if the user did not enter a valid row number for an item
+			if (num_items_bought = 0) then
+				stdout.put("You did not buy anything." nl);
+				// Do not proceed to checkout if the number of items bought is 0.
+			else
+				stdout.put("------Checkout------" nl);
+				stdout.put("Shopping Cart:" nl);
+				stdout.put("      ", num_items_bought, " items", nl);
+				stdout.put("Total cost: ", total_cost, " ", dollar_sign, nl);
+				stdout.newln();
+				
+				stdout.put("Please enter an amount in credits [", dollar_sign, "]: ");
+				enterUserCredits();  // returns value to ax register
+				mov(ax, user_credits);
+				
+				mov(total_cost, ax);
+				if (user_credits < (type uns16 ax)) then  // if the user entered less credits than the total cost
+					stdout.newln();
+					stdout.put("It seems you don't have enough money to make the purchase." nl);
+					stdout.put("Sorry, but we don't give anything away for free." nl);
+					stdout.put("Come back later with enough money or buy something cheaper next time." nl);
+				endif;
+			endif;
+			
+		else  // if the value saved to bl indeed represents a valid item
+			/*
+			 * bl is compared with the values of each item to determine what the user selected
+			 * for each item in stock:
+			 * - the quantity [# left] of that item is decremented
+			 * - the number of those items bought is incremented
+			 * - the total number of all items bought is incremented
+			 * - the price of that specific item is added to the total cost
+			 * the accumulator ['a' register] is used for adding the price of the item to the total cost
+			 */
+			if ((type uns8 bl) = 1) then
+				stdout.put("Blue Sleeper Mushrooms");
+				if (mushrooms_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(mushrooms_quantity);
+					inc(mushrooms_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(mushrooms_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 2) then
+				stdout.put("Amulet of Osiris");
+				if (amulet_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(amulet_quantity);
+					inc(amulet_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(amulet_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 3) then
+				stdout.put("Hyperborean Greatsword");
+				if (greatsword_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(greatsword_quantity);
+					inc(greatsword_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(greatsword_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 4) then
+				stdout.put("Asgardian Battle Axe");
+				if (battle_axe_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(battle_axe_quantity);
+					inc(battle_axe_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(battle_axe_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 5) then
+				stdout.put("Voodo Potion Antidote");
+				if (antidote_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(antidote_quantity);
+					inc(antidote_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(antidote_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 6) then
+				stdout.put("Flying Carpet");
+				if (flying_carpet_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(flying_carpet_quantity);
+					inc(flying_carpet_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(flying_carpet_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			elseif ((type uns8 bl) = 7) then
+				stdout.put("Herculean Strength Potion");
+				if (strength_potion_quantity != 0) then
+					stdout.put(" added to cart." nl);
+					dec(strength_potion_quantity);
+					inc(strength_potion_num_bought);
+					inc(num_items_bought);
+					mov(0, ah);
+					mov(strength_potion_price, al);
+					add(ax, total_cost);
+				else
+					stdout.put(" sold out." nl);
+				endif;
+			endif;
+			stdout.put("Hit Enter to continue" nl);
+			stdin.readLn();
+			stdin.flushInput();
+		endif;
+		
+		// bl = 0 if the user did not select a valid item, so after doing the checkout process,
+		// the forever loop breaks and the program ends.
+		breakif(bl = 0);
+		
+	endfor;
+	
+	// this code after the loop executes only after the checkout process has been completed
+	mov(total_cost, ax);
+	if (num_items_bought != 0 && user_credits >= (type uns16 ax)) then
+		printReceipt();
+		
+		// calculate and display the change
+		stdout.newln();
+		stdout.put("Your change is:" nl);
+		sub(ax, user_credits);  // computes the change money
+		mov(user_credits, ax);
+		try
+			div(100, ax);
+		anyexception  // div() can generate an exception if the dividend is too large
+			console.cls();
+			stdout.put("We don't accept such large monetary quantities as payment." nl);
+			mov(total_cost, ax);
+			add(ax, user_credits);
+			stdout.put("Here's your money back: ", user_credits, " ", dollar_sign, nl);
+			stdout.put("You receive no change." nl);
+			mov(0, ax);
+		endtry;
+		// quotient is in al
+		mov(ah, dl);  // save the remainder to dl
+		mov(0, ah);
+		mov(ax, num_dollars);
+		stdout.put(num_dollars, " ", dollar_sign, nl);
+		mov(dl, al);  // remander is the next dividend
+		mov(0, ah);
+		div(25, ax);
+		// quotient is in al
+		// remainder is in ah
+		mov(al, num_quarters);
+		stdout.put(num_quarters, " ", quarter_sign, nl);
+		mov(ah, al);  // remainder is the next dividend
+		mov(0, ah);
+		div(10, ax);
+		// quotient is in al
+		// remainder is in ah
+		mov(al, num_dimes);
+		stdout.put(num_dimes, " ", dime_sign, nl);
+		mov(ah, al);  // remainder is the next dividend
+		mov(0, ah);
+		div(5, ax);
+		// quotient is in al
+		// remainder is in ah
+		mov(al, num_nickels);
+		stdout.put(num_nickels, " ", nickel_sign, nl);
+		mov(ah, num_pennies);  // remainder is number of pennies
+		stdout.put(num_pennies, " ", penny_sign, nl);
+	endif;
+	
+	stdout.newln();
+	stdout.put("Thank you for shopping at Verlin's Magical Items Shop!" nl);
+	stdout.put("We hope you will return sometime later to buy some stuff again." nl);
+	
+end RPG_store;

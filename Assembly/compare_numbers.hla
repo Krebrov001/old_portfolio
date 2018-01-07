@@ -1,0 +1,88 @@
+/*
+ * Compare numbers
+ *
+ * written by			Konstantin Rebrov
+ * created on			30 August 2017
+ * last modified on		31 August 2017
+ *
+ * This program prompts the user for two numbers [1-50] inclusive and performs input validation
+ * The program compares the two numbers and prints an info message to stdout
+ * Finally, the user is asked if they want to repeat the program
+ * If they decline, the program ends.
+ *
+ */
+ program compare_numbers;
+ 
+	#include("stdlib.hhf");  // includes standard library
+ 
+ // static variable declarations
+ static
+	num1: uns8;
+	num2: uns8;
+	switchInput: char;
+ 
+ begin compare_numbers;
+ 
+	// clears the screen
+	console.cls();
+	stdout.put("Hello, assembly hacker...", nl, nl);
+	
+	// this causes basically the whole program to repeat
+	forever  // begin forever loop
+	
+		// validates the user input for the first number
+		repeat
+			// input the first number from the user
+			stdout.put("Please enter one number [1-50]: ");
+			stdin.getu8();
+			mov(al, num1);
+			// checks if num1 is invalid input
+			if (num1 < 1 || num1 > 50) then
+				stdout.put("Error", nl);
+				stdout.put("The number ", num1, " is not within the range 1-50.", nl, nl);
+			endif;
+		until(num1 > 0 && num1 <= 50);
+		
+		// validates the user input for the second number
+		repeat
+			// input the second number from the user
+			stdout.put("Please enter another number [1-50]: ");
+			stdin.getu8();
+			mov(al, num2);
+			// checks if num2 is invalid input
+			if (num2 < 1 || num2 > 50) then
+				stdout.put("Error", nl);
+				stdout.put("The number ", num2, " is not within the range 1-50.", nl, nl);
+			endif;
+		until(num2 > 0 && num2 <= 50);
+		
+		// compare the two numbers
+		mov(num1, bl);
+		if (bl > num2) then
+			stdout.put("The first number [", num1, "] is greater than the second number [", num2, "].", nl, nl);
+		elseif (bl == num2) then
+			stdout.put("The first number [", num1, "] is equivalent to the second number [", num2, "].", nl, nl);
+		else  // bl < num2
+			stdout.put("The second number [", num2, "] is greater than the first number [", num1, "].", nl, nl);
+		endif;
+		
+		// ask the user if they want to continue
+		stdin.flushInput();
+		stdout.put("Do you want to continue [y/n]? ");
+		stdin.getc();
+		mov(al, switchInput);
+		
+		if (switchInput = 'y') then  // using first form of the comparison operator
+			// continue the program
+		elseif(switchInput == 'n') then  // using second form of the comparison operator
+			stdout.put("Thank you for using my program.", nl);
+			stdout.put("Bye.", nl);
+		else
+			stdout.put("Bad user input.", nl);
+			stdout.put("Did you even bother to read the instructions?", nl);
+		endif;
+		breakif(switchInput != 'y');  // just to test out the breakif statement
+		
+	endfor;  // end forever loop
+ 
+ end compare_numbers;

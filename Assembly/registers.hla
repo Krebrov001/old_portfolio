@@ -1,0 +1,129 @@
+/*
+ * Registers in HLA
+ *
+ * written by			Konstantin Rebrov
+ * created on			12 September 2017
+ * last modified on		13 September 2017
+ *
+ * This program demonstrates the use of registers in hla
+ * The user is prompted to enter unsigned integers into the registers
+ * The contents of the registers and their corresponding segments
+ * are printed to the screen in decimal and hexadecimal formats.
+ *
+ */
+program Registers;
+
+	#include("stdlib.hhf");
+	
+	// no static variables
+
+begin Registers;
+
+	forever
+		
+		console.cls();  // clears the console window
+		stdout.newln();
+		stdout.put("This program reads in user input from the std IO device to the registers." nl);
+		stdout.put("_________________________________________________________________________" nl);
+		
+		// reads in 4 unsigned 8 bit numbers
+		// the numbers are stored into dl, cl, bl, and al respectively
+		// getu8 puts input into al automatically so the last statement has no mov instruction
+		stdout.newln();
+		stdout.put("Read in an unsigned 8 bit integer to the DL register: ");
+		stdin.getu8();
+		mov(al, dl);
+		stdout.put("Read in an unsigned 8 bit integer to the CL register: ");
+		stdin.getu8();
+		mov(al, cl);
+		stdout.put("Read in an unsigned 8 bit integer to the BL register: ");
+		stdin.getu8();
+		mov(al, bl);
+		stdout.put("Read in an unsigned 8 bit integer to the AL register: ");
+		stdin.getu8();
+		
+		stdout.newln();
+		stdout.put("Here are the contents of the registers:" nl);
+		stdout.put("---------------------------------------" nl);
+		stdout.put("REGISTER    | hex value | decimal value" nl);
+		stdout.put("DL register | $", dl, "       | ", (type uns8 dl), nl);
+		stdout.put("CL register | $", cl, "       | ", (type uns8 cl), nl);
+		stdout.put("BL register | $", bl, "       | ", (type uns8 bl), nl);
+		stdout.put("AL register | $", al, "       | ", (type uns8 al), nl);
+		
+		// reads in 4 unsigned 16 bit numbers
+		// the numbers are stored into dx, cx, bx, and ax respectively
+		// getu16 puts input into ax automatically so the last statement has no mov instruction
+		stdout.newln();
+		stdout.put("Read in an unsigned 16 bit integer to the DX register: ");
+		stdin.getu16();
+		mov(ax, dx);
+		stdout.put("Read in an unsigned 16 bit integer to the CX register: ");
+		stdin.getu16();
+		mov(ax, cx);
+		stdout.put("Read in an unsigned 16 bit integer to the BX register: ");
+		stdin.getu16();
+		mov(ax, bx);
+		stdout.put("Read in an unsigned 16 bit integer to the AX register: ");
+		stdin.getu16();
+		
+		stdout.newln();
+		stdout.put("Here are the contents of the registers:" nl);
+		stdout.put("---------------------------------------" nl);
+		stdout.put("REGISTER    | hex value | decimal value" nl);
+		stdout.put("DX register | $", dx, "     | ", (type uns16 dx), nl);
+		stdout.put("CX register | $", cx, "     | ", (type uns16 cx), nl);
+		stdout.put("BX register | $", bx, "     | ", (type uns16 bx), nl);
+		stdout.put("AX register | $", ax, "     | ", (type uns16 ax), nl);
+		stdout.put("DL register | $", dl, "       | ", (type uns8 dl), nl);
+		stdout.put("CL register | $", cl, "       | ", (type uns8 cl), nl);
+		stdout.put("BL register | $", bl, "       | ", (type uns8 bl), nl);
+		stdout.put("AL register | $", al, "       | ", (type uns8 al), nl);
+		
+		// reads in 4 unsigned 32 bit numbers
+		// the numbers are stored into edx, ecx, ebx, and eax respectively
+		// getu32 puts input into eax automatically so the last statement has no mov instruction
+		stdout.newln();
+		stdout.put("Read in an unsigned 32 bit integer to the EDX register: ");
+		stdin.getu32();
+		mov(eax, edx);
+		stdout.put("Read in an unsigned 32 bit integer to the ECX register: ");
+		stdin.getu32();
+		mov(eax, ecx);
+		stdout.put("Read in an unsigned 32 bit integer to the EBX register: ");
+		stdin.getu32();
+		mov(eax, ebx);
+		stdout.put("Read in an unsigned 32 bit integer to the EAX register: ");
+		stdin.getu32();
+		
+		stdout.newln();
+		stdout.put("Here are the contents of the registers:" nl);
+		stdout.put("---------------------------------------" nl);
+		stdout.put("REGISTER    | hex value | decimal value" nl);
+		stdout.put("EDX register| $", edx, " | ", (type uns32 edx), nl);
+		stdout.put("ECX register| $", ecx, " | ", (type uns32 ecx), nl);
+		stdout.put("EBX register| $", ebx, " | ", (type uns32 ebx), nl);
+		stdout.put("EAX register| $", eax, " | ", (type uns32 eax), nl);
+		stdout.put("DX register | $", dx, "     | ", (type uns16 dx), nl);
+		stdout.put("CX register | $", cx, "     | ", (type uns16 cx), nl);
+		stdout.put("BX register | $", bx, "     | ", (type uns16 bx), nl);
+		stdout.put("AX register | $", ax, "     | ", (type uns16 ax), nl);
+		stdout.put("DL register | $", dl, "       | ", (type uns8 dl), nl);
+		stdout.put("CL register | $", cl, "       | ", (type uns8 cl), nl);
+		stdout.put("BL register | $", bl, "       | ", (type uns8 bl), nl);
+		stdout.put("AL register | $", al, "       | ", (type uns8 al), nl);
+		
+		stdout.newln();
+		stdout.put("Do you want to repeat the program? [y/n] ");
+		stdin.readLn();
+		stdin.getc();			// puts the result into al register
+		stdin.flushInput();  	// flushes the input buffer
+		
+		if (al != 'y' && al != 'n') then
+			stdout.put("ENTER THE RIGHT LETTER!!!", nl);
+		endif;
+		
+		breakif(al != 'y');
+	endfor;
+	
+end Registers;

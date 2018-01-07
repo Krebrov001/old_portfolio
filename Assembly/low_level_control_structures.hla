@@ -1,0 +1,216 @@
+/*
+ * Low Level Assembly Control Structures
+ *
+ * written by				Konstantin Rebrov
+ * written on				4 December 2017
+ * last modified on			4 December 2017
+ *
+ * This program prompts the user for a number and then performs several mathematical operations
+ * on that number:
+ *   - Checking to see if that number is negative.
+ *   - Checking to see if that number is even.
+ *   - Negating that number.
+ *   - Checking to see if that number is prime.
+ * The user is asked if they want to perform the above mathematical calculations on another
+ * number.
+ * Then the program prompts the user for a different number and counts from 1 up to the new number
+ * input by the user, and then counts from that number back down to 1.
+ * One again, the user is prompted if they want to repeat the loop.
+ *
+ * The body of this code was written by my professor, Boyd Trolinger.
+ * The purpose of this assignment was to convert the high level conditional statements and loops
+ * into low level assembly ones.
+ *
+ */
+program low_level_control_structures;
+
+#include ("stdlib.hhf")
+
+/* forward declarations */
+procedure getInt8 (prompt: string; min: int8; max: int8); @returns("al"); @forward;
+
+/* procedure definitions */
+procedure getInt8 (prompt: string; min: int8; max: int8);
+begin getInt8;
+
+	push(edx);
+	push(ecx);
+	push(ebx);
+	FOREVER_GET_INT8_LOOP:
+		try
+			stdout.put(nl, prompt, " [", min, " to ", max, "]: ");
+			stdin.flushInput();
+			stdin.geti8();
+			unprotected
+				cmp((type int8 al), min);
+				jl INT8_BAD;
+				cmp((type int8 al), max);
+				jg INT8_BAD;
+				jmp END_FOREVER_GET_INT8_LOOP;
+				INT8_BAD:
+					stdout.put(nl, "Value not in required range.");
+		anyexception
+			stdout.put(nl, "Invalid input.");
+		endtry;
+	END_FOREVER_GET_INT8_LOOP:
+	pop(ebx);
+	pop(ecx);
+	pop(edx);
+
+end getInt8;
+
+/* program variables and main */
+
+static
+	input: int8;
+	isPrime: boolean;
+	
+begin low_level_control_structures;
+
+	START_FOREVER_LOOP_1:
+		
+		console.cls();
+		
+		mov(getInt8("Please enter an int8", -127, 127), input);
+		
+		stdout.put(nl, "What do you want to do with your input value?", nl);
+		stdout.put("1. Test to see if it is negative", nl);
+		stdout.put("2. Test to see if it is even", nl);
+		stdout.put("3. Reverse its sign", nl);
+		stdout.put("4. Test to see if it is prime", nl);
+		stdout.put("your choice: ");
+		getInt8("your choice", 1, 4);
+		
+		console.cls();
+		
+		// This label is just here for consistency and self-documenting code.
+		// It doesn't actually do anything.
+		Choice1:
+		cmp(al, 1);
+		jne Choice2;
+			IfNeg:
+			cmp(input, 0);
+			jnl ElseNotNeg;
+				stdout.put(input, " is a negative value.", nl);
+				jmp EndifNeg;
+			ElseNotNeg:
+				stdout.put(input, " is greater than or equal to zero.", nl);
+			EndifNeg:
+			jmp EndifChoice;
+		Choice2:
+		cmp(al, 2);
+		jne Choice3;
+			
+			mov(0, ah);
+			mov(input, al);
+			idiv(2, ax);
+			IfEven:
+			cmp(ah, 0);
+			jne ElseIsOdd;
+				stdout.put(input, " is an even number.", nl);
+				jmp EndifEven;
+			ElseIsOdd:
+				stdout.put(input, " is an odd number.", nl);
+			EndifEven:
+			jmp EndifChoice;
+		Choice3:
+		cmp(al, 3);
+		jne OtherChoice;
+			mov(input, al);
+			not(al);
+			add(1, al);
+			stdout.put(input, " sign reversed is ", (type int8 al), nl);
+			jmp EndifChoice;
+		OtherChoice:
+			CheckNotPos:
+			cmp(input, 0);
+			jnl EndifCheckNotPos;
+				stdout.put("Reversing the sign.", nl, nl);
+				mov(input, al);
+				not(al);
+				add(1, al);
+				mov(al, input);
+			EndifCheckNotPos:
+			mov(true, isPrime);
+			IfInputLt2:
+			cmp(input, 2);
+			jnl ElseInputGte2;
+				mov(false, isPrime);
+				jmp EndifInputLt2;
+			ElseInputGte2:
+				mov(true, isPrime);  // new line of code
+				mov(2, cl);
+				TestPrimeLoop:
+				cmp(cl, input);
+				jnb EndTestPrimeLoop;
+					mov(0, ah);
+					mov(input, al);
+					div(cl, ax);
+					IfDivisorFound:
+					cmp(ah, 0);
+					jne EndifDivisorFound;
+						mov(false, isPrime);
+						jmp EndTestPrimeLoop;
+					EndifDivisorFound:
+					inc(cl);
+					jmp TestPrimeLoop;
+				EndTestPrimeLoop:
+			EndifInputLt2:
+			
+			IfPrime:
+			cmp(isPrime, true);
+			jne ElseNotPrime;
+				stdout.put(input, " is a prime number.", nl);
+				jmp EndifPrime;
+			ElseNotPrime:
+				stdout.put(input, " is not a prime number.", nl);
+			EndifPrime:
+		EndifChoice:
+		
+		stdout.put(nl, nl, "Go again [y/n]? ");
+		stdin.flushInput();
+		
+		chars.toUpper(stdin.getc());
+		
+		cmp(al, 'N');
+		jne START_FOREVER_LOOP_1;
+		
+	END_FOREVER_LOOP_1:
+
+	START_FOREVER_LOOP_2:
+		
+        console.cls();
+		
+        mov(getInt8("Please enter an int8", 1, 20), input);
+		
+		stdout.put(nl, "counting up...", nl);
+		mov(1, cl);
+		CountUpLoop:
+		cmp(cl, input);
+		jnbe EndCountUpLoop;
+            stdout.put((type uns8 cl), " ");
+			inc(cl);
+			jmp CountUpLoop;
+        EndCountUpLoop:
+        stdout.newln();
+		
+		stdout.put(nl, "counting down...", nl);
+        mov(input, cl);
+		CountDownLoop:
+		cmp(cl, 0);
+		jna EndCountDownLoop;
+            stdout.put((type uns8 cl), " ");
+            dec(cl);
+			jmp CountDownLoop;
+        EndCountDownLoop:
+        stdout.newln();
+		
+        stdout.put(nl, nl, "Go again [y/n]? ");
+        stdin.flushInput();
+		
+        cmp(chars.toUpper(stdin.getc()), 'N');
+        jne START_FOREVER_LOOP_2;
+		
+    END_FOREVER_LOOP_2:
+
+end low_level_control_structures;

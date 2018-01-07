@@ -1,0 +1,438 @@
+/*
+ * Dynamic Arrays
+ *
+ * written by					Konstantin Rebrov
+ * created on					14 November 2017
+ * last modified on				18 November 2017
+ *
+ * Nov. 18: This program is now complete and well documented!
+ * 
+ * This program demonstrates the creation, allocation, editing, looping through, and deallocation
+ * of dynamic arrays in the heap memory.
+ * The user is prompted for the size and data type of the array that they desire to create,
+ * and that array is automatically allocated in the heap.
+ * Additonally, one more extra cell is allocated to compute, store and display the largest value
+ * in the array. It is technically not part of the array, but rather extra data associated with it.
+ * The user can edit the dynamic array at will and the value in the "computation cell" will change
+ * according to the values that the user stored in the array.
+ * Dynamic strings are used for user input, and string functions are used for string comparison.
+ * Please note that user input for this program is not handled robustly.
+ * After the user chooses to quit the program, all dynamic memory is deallocated.
+ * This program uses heavy console input/output to make the user experience a memorable one.
+ * The theme is supposed to be inspired by a "hacker's tech" color scheme.
+ *
+ * Helper procedures:
+ * editCell:       edits a given cell in the array.
+ * displayCells:   prints out an array.
+ * computeLargest: saves the largest value in the array into the extra "computation cell."
+ *
+ * Registers:
+ * In the main method, eax and ebx are used for user input/output, intermediate mathematical calculations,
+ * and also as pointers.
+ * ecx is used as a loop counter variable and for storing array indexes.
+ * The helper procedures do not affect the global values of the registers.
+ *
+ */
+program Dynamic_arrays;
+
+#include("stdlib.hhf");
+#include("sleep.hhf");
+
+
+static
+	// attributes belonging to the dynamic array
+	array_base_address: dword;
+	array_size:			uns32;
+	array_data_type:	string;
+
+
+/*
+ * This procedure edits a value at a given index in the array.
+ * The user is prompted to provide a new value to overwrite the old value at that cell.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param cell_index: uns32 - The index of the cell to edit.
+ *
+ * @param data_type: string - The data type of the array cells in double quotes.
+ *							  Valid values: "INT8" , "INT16" , "INT32"
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used to hold the cell index.
+ * The eax register is pushed and popped just in case str.eq() modifies this register.
+ * From The Art of Assembly Language:  "str.eq( s1, s2);" returns true in EAX if s1 is equal to s2.
+ * From HLA Standard Library Reference Manual:  These functions return true/false in the carry flag
+ * (set/clear). They preserve all the other registers. The original functions in v1.x of the HLA
+ * stdlib returned the comparison result in the EAX/AL register.
+ * All registers are pushed and popped to avoid unexpected behavior.
+ *
+ */
+procedure editCell(base_address: dword; cell_index: uns32; data_type: string);
+begin editCell;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	mov(base_address, ebx);
+	mov(cell_index, ecx);
+	
+	stdout.put("Enter a new value for the array at index [", cell_index, "]", nl);
+	stdout.put("  --> ");
+	if (str.eq(data_type, "INT8")) then
+		stdin.geti8();
+		mov(al, (type int8 [ebx + ecx]));
+	elseif (str.eq(data_type, "INT16")) then
+		stdin.geti16();
+		mov(ax, (type int16 [ebx + ecx * 2]));
+	elseif (str.eq(data_type, "INT32")) then
+		stdin.geti32();
+		mov(eax, (type int32 [ebx + ecx * 4]));
+	endif;
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end editCell;
+
+
+/*
+ * This procedure prints out all the values in the array.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: string - The data type of the array cells in double quotes.
+ *							  Valid values: "INT8" , "INT16" , "INT32"
+ *
+ * Registers:
+ * The ebx register is used to hold the base pointer.
+ * The ecx register is used to loop through the array and print each value in the array.
+ * Here, ecx represents the index of the nth value in the array, so the scaled indexing
+ * automatically selects the next item in the array by the size of the data type as a unit.
+ * Both registers are pushed and popped to avoid unexpected behavior.
+ * The eax register is pushed and popped just in case str.eq() modifies this register.
+ * From The Art of Assembly Language:  "str.eq( s1, s2);" returns true in EAX if s1 is equal to s2.
+ * From HLA Standard Library Reference Manual:  These functions return true/false in the carry flag
+ * (set/clear). They preserve all the other registers. The original functions in v1.x of the HLA
+ * stdlib returned the comparison result in the EAX/AL register.
+ *
+ */
+procedure displayCells(base_address: dword; num_cells: uns32; data_type: string);
+begin displayCells;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	
+	mov(base_address, ebx);
+	for (mov(0, ecx); ecx < num_cells; inc(ecx)) do
+		if (str.eq(data_type, "INT8")) then
+			stdout.put((type int8 [ebx + ecx]), ' ');
+		elseif (str.eq(data_type, "INT16")) then
+			stdout.put((type int16 [ebx + ecx * 2]), ' ');
+		elseif (str.eq(data_type, "INT32")) then
+			stdout.put((type int32 [ebx + ecx * 4]), ' ');
+		endif;
+	endfor;
+	
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end displayCells;
+
+
+/*
+ * This procedure computes the largest value in the array and saves it into the extra "computation cell"
+ * The "computation cell" is located at index [num_cells] in the array.
+ *
+ * @param base_address: dword - The address of the first locaton in the array.
+ *
+ * @param num_cells: uns32 - The number of cells, or values in the array.
+ *
+ * @param data_type: string - The data type of the array cells in double quotes.
+ *							  Valid values: "INT8" , "INT16" , "INT32"
+ *
+ * Registers:
+ * The ebx register is used to hold the base address of the array [base pointer].
+ * The ecx register is used as a loop counter variable.
+ * Here, ecx stores the index of a particular cell in the array.
+ * After the loop ends, ecx contains the index of the "computation cell."
+ * The edx register is used to store the largest value in the array as an intermediate calculaton.
+ * Depending on the data type, dl, dx, or the full edx is used for this purpose
+ * The eax register is pushed and popped just in case str.eq() modifies this register.
+ * From The Art of Assembly Language:  "str.eq( s1, s2);" returns true in EAX if s1 is equal to s2.
+ * From HLA Standard Library Reference Manual:  These functions return true/false in the carry flag
+ * (set/clear). They preserve all the other registers. The original functions in v1.x of the HLA
+ * stdlib returned the comparison result in the EAX/AL register.
+ * All registers are pushed and popped to avoid unexpected behavior.
+ *
+ */
+procedure computeLargest(base_address: dword; num_cells: uns32; data_type: string);
+begin computeLargest;
+	
+	push(eax);
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	mov(base_address, ebx);
+	
+	// mov the first element in the array to edx
+	if (str.eq(data_type, "INT8")) then
+		mov((type int8 [ebx]), dl);
+	elseif (str.eq(data_type, "INT16")) then
+		mov((type int16 [ebx]), dx);
+	elseif (str.eq(data_type, "INT32")) then
+		mov((type int32 [ebx]), edx);
+	endif;
+	
+	// loop through the array to compare the values to edx
+	// ecx starts at 1 because we assume that the first element is the largest
+	for (mov(1, ecx); ecx < num_cells; inc(ecx)) do
+		if (str.eq(data_type, "INT8")) then
+			if ((type int8 [ebx + ecx]) > (type int8 dl)) then
+				mov((type int8 [ebx + ecx]), dl);
+			endif;
+		elseif (str.eq(data_type, "INT16")) then
+			if ((type int16 [ebx + ecx * 2]) > (type int16 dx)) then
+				mov((type int16 [ebx + ecx * 2]), dx);
+			endif;
+		elseif (str.eq(data_type, "INT32")) then
+			if ((type int32 [ebx + ecx * 4]) > (type int32 edx)) then
+				mov((type int32 [ebx + ecx * 4]), edx);
+			endif;
+		endif;
+	endfor;
+	// now ecx points to the extra "computation cell" in the array
+	
+	// mov the largest element in the array into the "computation cell"
+	if (str.eq(data_type, "INT8")) then
+		mov(dl, (type int8 [ebx + ecx]));
+	elseif (str.eq(data_type, "INT16")) then
+		mov(dx, (type int16 [ebx + ecx * 2]));
+	elseif (str.eq(data_type, "INT32")) then
+		mov(edx, (type int32 [ebx + ecx * 4]));
+	endif;
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	pop(eax);
+	
+end computeLargest;
+
+
+// This is the main method of the program.
+// The program starts here at runtime.
+begin Dynamic_arrays;
+	
+	/*
+	 * The main program loop allows the user to repeat the program and allocate space in the heap
+	 * for a brand new array without restarting the executable file.
+	 */
+	forever
+		
+		console.cls();
+		console.setAttrs(console.yellow, console.black);
+		stdout.put('.');
+		stdout.putsSize("_", 44, '_');
+		stdout.put('.');
+		stdout.newln();
+		
+		console.setAttrs(console.black, console.yellow);
+		stdout.put('|');
+		stdout.putsSize("DYNAMIC=ARRAYS", 30, '=');
+		stdout.putsSize("=", 14, '=');
+		stdout.put('|');
+		stdout.newln();
+		
+		console.setAttrs(console.yellow, console.black);
+		stdout.put('|');
+		stdout.putsSize("|", 45, ' ');
+		stdout.newln();
+		
+		// One more than the number of cells entered by the user is allocated in heap memory.
+		// This memory space is allocated for the extra "computation cell," which stores
+		// the result of computing the largest value in the array at any given time.
+		
+		stdout.put("  Enter dynamic array size: ");
+		stdin.getu32();
+		mov(eax, array_size);
+		inc(eax);  // add space for one more item
+		// ebx now stores the number of cells to allocate space for
+		mov(eax, ebx);
+		
+		stdout.putsSize("-", 46, '-');
+		stdout.newln();
+		stdout.newln();
+		
+		stdout.put("  Availible data types:");
+		stdout.putsSize(" ", 4, ' ');
+		console.setAttrs(console.black, console.yellow);
+		stdout.put("INT8 ", nl);
+		console.setAttrs(console.yellow, console.black);
+		stdout.putsSize(" ", 27, ' ');
+		console.setAttrs(console.black, console.yellow);
+		stdout.put("INT16", nl);
+		console.setAttrs(console.yellow, console.black);
+		stdout.putsSize(" ", 27, ' ');
+		console.setAttrs(console.black, console.yellow);
+		stdout.put("INT32", nl);
+		
+		// sets up memory for the string pointer
+		stralloc(5);  // overwrites eax with the base address of the string
+		mov(eax, array_data_type);
+		
+		console.setAttrs(console.yellow, console.black);
+		stdout.putsSize("-", 46, '-');
+		stdout.newln();
+		
+		// prompt the user for a data type
+		stdout.putsSize("  Enter a data type:", -27, ' ');
+		stdin.flushInput();
+		stdin.gets(array_data_type);
+		
+		// sets up memory for the dynamic array
+		if (str.eq(array_data_type, "INT8")) then
+			mov(ebx, eax);
+		elseif (str.eq(array_data_type, "INT16")) then
+			mov(ebx, eax);
+			mul(2, eax);
+		elseif (str.eq(array_data_type, "INT32")) then
+			mov(ebx, eax);
+			mul(4, eax);
+		endif;
+		mov(eax, ebx);
+		// ebx now contains the number of bytes to allocate
+		mem.zalloc(ebx);  // zalloc returns address of array in eax
+		mov(eax, array_base_address);
+		
+		stdout.newln();
+		
+		// prints an animaton to the screen
+		stdout.put("  Allocating memory: ");
+		for (mov(0, cl); cl < 20; inc(cl)) do
+			stdout.put('+');
+			os.mSleep(250);
+		endfor;
+		stdout.newln();
+		
+		// prints the number of bytes allocated on the heap
+		stdout.newln();
+		stdout.put("  ");
+		console.setAttrs(console.black, console.yellow);
+		stdout.put((type uns32 ebx));
+		stdout.put(" BYTES ALLOCATED" nl);
+		console.setAttrs(console.yellow, console.black);
+		
+		// initializes the extra "computation cell"
+		computeLargest(array_base_address, array_size, array_data_type);
+		
+		// editing loop [nested inside the main loop]
+		forever
+			
+			stdout.putsSize("-", 46, '-');
+			stdout.newln();
+			
+			// prints the numbered list of array indexes
+			stdout.putsSize("Memory locations: ", 25, ' ');
+			for (mov(0, ecx); ecx < array_size; inc(ecx)) do
+				stdout.put((type uns32 ecx), " ");
+			endfor;
+			stdout.put("| ", (type uns32 ecx), nl);
+			
+			stdout.put("  Current cell contents: ");
+			console.setAttrs(console.black, console.yellow);
+			
+			// prints all the regular cells in the array
+			displayCells(array_base_address, array_size, array_data_type);
+			
+			// prints the extra "computation cell"
+			stdout.put("| ");
+			mov(array_size, ecx);
+			if (str.eq(array_data_type, "INT8")) then
+				mov(array_base_address, eax);
+				stdout.put((type int8 [eax + ecx * 1]), nl);
+			elseif (str.eq(array_data_type, "INT16")) then
+				mov(array_base_address, eax);
+				stdout.put((type int16 [eax + ecx * 2]), nl);
+			elseif (str.eq(array_data_type, "INT32")) then
+				mov(array_base_address, eax);
+				stdout.put((type int32 [eax + ecx * 4]), nl);
+			endif;
+			
+			stdout.newln();
+			console.setAttrs(console.yellow, console.black);
+			
+			stdout.put("  Enter A to edit a cell, B to exit");
+			stdout.put("   ");
+			console.setAttrs(console.black, console.yellow);
+			stdin.flushInput();
+			stdin.getc();
+			console.setAttrs(console.yellow, console.black);
+			if ((type char al) == 'A') then	
+				stdout.newln();
+				stdout.put("  Enter an index of the cell to edit: ");
+				console.setAttrs(console.black, console.yellow);
+				stdin.flushInput();
+				stdin.getu32();  // returns uns32 value to eax
+				console.setAttrs(console.yellow, console.black);
+				stdout.newln();
+				editCell(array_base_address, eax, array_data_type);
+				
+				// update "computation cell"
+				computeLargest(array_base_address, array_size, array_data_type);
+			endif;
+			breakif((type char al) == 'B');  // break the editing loop
+			
+		endfor;
+		
+		// deallocate memory for the dynamic array
+		mem.free(array_base_address);
+		
+		// deallocate memory for the string
+		strfree(array_data_type);
+		
+		// inform the user that memory has been freed
+		stdout.putsSize("-", 46, '-');
+		stdout.newln();
+		stdout.newln();
+		stdout.putsSize(" ", 10, ' ');
+		console.setAttrs(console.black, console.yellow);
+		stdout.put("DYNAMIC MEMORY FREED" nl);
+		console.setAttrs(console.yellow, console.black);
+		stdout.newln();
+		
+		stdout.putsSize("_", 46, '_');
+		stdout.newln();
+		
+		stdout.put("| REPEAT MAIN PROGRAM? [y/n]: ");
+		stdin.flushInput();
+		try
+			stdin.getc();
+		anyexception
+			break;
+		endtry;
+		breakif((type char al) != 'y');  // break main program loop
+		
+	endfor;
+	
+	// prints the footer
+	stdout.newln();
+	stdout.put('|');
+	stdout.putsSize("|", 45, ' ');
+	stdout.newln();
+	console.setAttrs(console.black, console.yellow);
+	stdout.put('|');
+	stdout.putsSize("|", 45, '=');
+	stdout.newln();
+	stdout.newln();
+	
+	console.setAttrs(console.white, console.black);
+	
+end Dynamic_arrays;

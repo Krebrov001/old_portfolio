@@ -1,0 +1,317 @@
+/*
+ * Retro Terminal
+ *
+ * written by				Konstantin Rebrov
+ * created on				10 October 2017
+ * last modified on			12 October 2017
+ *
+ * This program simulates a GREEN retro terminal in Assembly.
+ *
+ * This program allows the user to input values to the al, bl, cl, and dl registers.
+ * Then the program displays the stats information about the registers:
+ * - The values stored in each register.
+ * - A bar graph comparing the relative sizes of the registers.
+ * - The total sum and average of the values in the register.
+ * - The minimum value of the registers.
+ * - The maximum value of the registers.
+ * This process of register input/output can repeat if the user pleases so.
+ *
+ * Registers:
+ * The register input goes into the al, bl, cl, and dl register respectively.
+ * The procedures may modify the values in some of the registers, but then they restore the previous values
+ * of the registers that they modify.
+ *
+ */
+program retro_terminal;
+
+#include("stdlib.hhf");
+
+
+/*
+ * This procedure handles user input for the registers.
+ * The user is prompted to enter a valid uns8 value [min_value-max_value] inclusive.
+ * If the user fails to do so, the procedure will keep bugging them until they enter
+ * the desired value.
+ *
+ * Parameters:
+ * user_prompt - represents the message that prompts the user to enter a value.
+ * min_value - the minimum input value accepted
+ * max_value - the maximum input value accepted
+ *
+ * Registers:
+ * This procedure saves the user input value to al, overwriting that part of the accumulator.
+ * The exception handling wipes out the four general-purpose registers.
+ * That is why the procedure is responsible for pushing and popping ebx, ecx, and edx
+ * onto the stack to save and restore them.
+ * However, eax is overwritten anyway when the user input value is returned to al, so no
+ * attempt to push/pop the accumulator is made.
+ */
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8); @forward;
+
+procedure getUns8(user_prompt: string; min_value: uns8; max_value: uns8);
+begin getUns8;
+	
+	stdout.put("-------register-input-------" nl);
+	stdout.newln();
+	
+	// preserves the values of the registers
+	push(ebx);
+	push(ecx);
+	push(edx);
+	
+	forever
+		stdout.put(user_prompt, " [", min_value, "-", max_value, "]: ");
+		try
+			stdin.getu8();
+			// all valid values break the loop
+			unprotected breakif((type uns8 al) >= min_value && (type uns8 al) <= max_value);
+			// any values outside the range go down below
+			stdout.put("   Please enter a value [", min_value, "-", max_value, "] inclusive.", nl);
+			stdout.newln();
+		anyexception  // catches strings, negative numbers, and non-uns8 numbers
+			stdout.put("   Invalid input" nl);
+			stdout.newln();
+		endtry;
+	endfor;
+	
+	// confirmation message to show that the previous instruction was successful
+	stdout.put("   Value saved to register." nl);
+	
+	pop(edx);
+	pop(ecx);
+	pop(ebx);
+	
+	stdout.newln();
+	stdout.newln();
+	
+end getUns8;
+
+
+/*
+ * This procedure prints out a "bar graph" of asterisks (*) representing the parameter value.
+ * One * represents a multiple of 10 that fits into the given parameter.
+ *
+ * Registers:
+ * This procedure modifies the accumulator for arithmetic purposes.
+ * cl is used as a loop counter
+ * The eax and ecx registers are pushed and popped so this procedure works without
+ * screwing up the registers.
+ */
+procedure showGraph(number: uns8);
+
+begin showGraph;
+	
+	push(eax);
+	push(ecx);
+	
+	stdout.put(" ");
+	if (number >= 100) then
+		stdout.put(number, ": ");
+	else  // number >= 10
+		stdout.put(" ", number, ": ");
+	endif;
+	// how many times does 10 go into number?
+	mov(number, al);
+	mov(0, ah);
+	div(10, ax);
+	// al contains the quotient
+	// ah contains the remainder
+	
+	// prints the asterisks
+	console.setAttrs(console.cyan, console.black);
+	for (mov(0, cl); (type uns8 cl) < (type uns8 al); inc(cl)) do
+		stdout.put("*");
+	endfor;
+	stdout.newln();
+	console.setAttrs(console.green, console.black);
+	
+	pop(ecx);
+	pop(eax);
+	
+end showGraph;
+
+
+/*
+ * This procedure takes the parameters and calculates and prints their total sum and avergage value.
+ *
+ * Parameters:
+ * Four uns8 values representing the 8-bit register values that are passed in.
+ *
+ * Registers:
+ * The eax and edx registers are used for arithmetic calculations.
+ * This procedure saves and restores these registers.
+ */
+procedure totalAndAverage(number1: uns8; number2: uns8; number3: uns8; number4: uns8);
+
+begin totalAndAverage;
+	
+	push(eax);
+	push(edx);
+	
+	mov(number1, al);
+	mov(0, ah);
+	mov(number2, dl);
+	mov(0, dh);
+	add(dx, ax);
+	mov(number3, dl);
+	mov(0, dh);
+	add(dx, ax);
+	mov(number4, dl);
+	mov(0, dh);
+	add(dx, ax);
+	
+	stdout.put("The sum total of the given values is: ", (type uns16 ax), nl);
+	
+	div(4, ax);
+	// al contains the quotient
+	// ah contains the remainder
+	
+	stdout.put("The average of the given values [integer division] is: ", (type uns8 al), nl);
+	
+	pop(edx);
+	pop(eax);
+	
+end totalAndAverage;
+
+
+/*
+ * This procedure finds and prints the minimum value of the given parameters.
+ *
+ * Parameters:
+ * Four uns8 values representing the 8-bit register values that are passed in.
+ *
+ * Registers:
+ * The smallest value is saved into al
+ * The program then prints al, and after that the value in al is no longer needed.
+ * The eax register is pushed and popped, so its previous value is preserved by the procedure.
+ */
+procedure min(number1: uns8; number2: uns8; number3: uns8; number4: uns8);
+
+begin min;
+	
+	push(eax);
+	
+	// al is used to hold the smallest number
+	mov(number1, al);
+	if (number2 < (type uns8 al)) then
+		mov(number2, al);
+	endif;
+	if (number3 < (type uns8 al)) then
+		mov(number3, al);
+	endif;
+	if (number4 < (type uns8 al)) then
+		mov(number4, al);
+	endif;
+	
+	stdout.put("The minimum value is: ", (type uns8 al), nl);
+	
+	pop(eax);
+	
+end min;
+
+
+/*
+ * This procedure finds and prints the maximum value of the given parameters.
+ *
+ * Parameters:
+ * Four uns8 values representing the 8-bit register values that are passed in.
+ *
+ * Registers:
+ * The largest value is saved into al
+ * The program then prints al, and after that the value in al is no longer needed.
+ * The eax register is pushed and popped, so its previous value is preserved by the procedure.
+ */
+procedure max(number1: uns8; number2: uns8; number3: uns8; number4: uns8);
+
+begin max;
+	
+	push(eax);
+	
+	// al is used to hold the largest number
+	mov(number1, al);
+	if (number2 > (type uns8 al)) then
+		mov(number2, al);
+	endif;
+	if (number3 > (type uns8 al)) then
+		mov(number3, al);
+	endif;
+	if (number4 > (type uns8 al)) then
+		mov(number4, al);
+	endif;
+	
+	stdout.put("The maximum value is: ", (type uns8 al), nl);
+	
+	pop(eax);
+	
+end max;
+
+
+// the main method of the program
+// the program begins here at run time
+begin retro_terminal;
+	
+	forever
+		
+		// Clears the console and sets the output text to GREEN!
+		console.cls();
+		console.setAttrs(console.green, console.black);
+		
+		/* User input for each of the 8-bit general-purpose registers */
+		
+		getUns8("Enter an uns8 value", 10, 200);  // returns value to al
+		push(eax);  // also pushes al
+		
+		getUns8("Enter an uns8 value", 10, 200);
+		mov(al, bl);
+		
+		getUns8("Enter an uns8 value", 10, 200);
+		mov(al, cl);
+		
+		getUns8("Enter an uns8 value", 10, 200);
+		mov(al, dl);
+		
+		pop(eax);  // preserves the value of al
+		
+		/* Displays the stats of the registers */
+		
+		stdout.put("====REGISTERS====" nl);
+		stdout.newln();
+		
+		stdout.put("al: ", (type uns8 al), nl);
+		stdout.put("bl: ", (type uns8 bl), nl);
+		stdout.put("cl: ", (type uns8 cl), nl);
+		stdout.put("dl: ", (type uns8 dl), nl);
+		stdout.newln();
+		
+		showGraph(al);
+		showGraph(bl);
+		showGraph(cl);
+		showGraph(dl);
+		stdout.newln();
+		
+		totalAndAverage(al, bl, cl, dl);
+		stdout.newln();
+		
+		min(al, bl, cl, dl);
+		stdout.newln();
+		max(al, bl, cl, dl);
+		stdout.newln();
+		
+		console.setAttrs(console.white, console.black);
+		
+		stdout.newln();
+		stdout.put("Do you want to enter new values for the registers? [y/n] ");
+		stdin.readLn();
+		stdin.getc();
+		if ((type char al) == 'n') then
+			stdout.put("Thank you for using my program." nl);
+		// since all 'n' values go into the statement above,
+		// this also implies that (type char al) != 'n'
+		elseif ((type char al) != 'y') then
+			stdout.put("Please take the initiative to read the instructions." nl);
+		endif;
+		breakif((type char al) != 'y');
+		
+	endfor;
+	
+end retro_terminal;
